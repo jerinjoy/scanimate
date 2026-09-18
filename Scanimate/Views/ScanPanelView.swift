@@ -3,7 +3,8 @@ import SwiftUI
 struct ScanPanelView: View {
     @ObservedObject var viewModel: ScanViewModel
 
-    @AppStorage("ipAddress") private var ipAddress: String = ""
+    private static let otherHostSentinel = "_other_"
+
     @AppStorage("resolution") private var resolution: String = Resolution.dpi300.rawValue
     @AppStorage("colorMode") private var colorMode: String = ColorMode.grayscale.rawValue
     @AppStorage("paperSize") private var paperSize: String = PaperSize.letter.rawValue
@@ -29,7 +30,10 @@ struct ScanPanelView: View {
         } message: { error in
             Text(error.errorDescription ?? error.localizedDescription)
         }
-        .onAppear { syncSettings() }
+        .onAppear {
+            syncSettings()
+            viewModel.startDiscovery()
+        }
     }
 
     // MARK: - Left panel
@@ -44,11 +48,19 @@ struct ScanPanelView: View {
 
     private var settingsForm: some View {
         Form {
-            Section("Scanner") {
-                LabeledContent("IP Address") {
-                    TextField("e.g. 192.168.1.66", text: $ipAddress)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: ipAddress) { viewModel.ipAddress = $0 }
+            Section {
+                scannerPickerRow
+                if viewModel.selectedTarget == nil {
+                    manualHostRow
+                }
+            } header: {
+                HStack(spacing: 6) {
+                    Text("Scanner")
+                    if viewModel.isDiscovering {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .frame(width: 12, height: 12)
+                    }
                 }
             }
 
@@ -94,6 +106,48 @@ struct ScanPanelView: View {
         .disabled(viewModel.isScanning || viewModel.isOverviewing)
     }
 
+    // MARK: - Scanner picker row
+
+    private var scannerPickerRow: some View {
+        Picker("Device", selection: pickerHostBinding) {
+            if !viewModel.discoveredTargets.isEmpty {
+                Section("Discovered") {
+                    ForEach(viewModel.discoveredTargets) { target in
+                        Text(target.displayName ?? target.host).tag(target.host)
+                    }
+                }
+            }
+            if !viewModel.savedTargets.isEmpty {
+                Section("Saved") {
+                    ForEach(viewModel.savedTargets) { target in
+                        Text(target.host).tag(target.host)
+                    }
+                }
+            }
+            Text("Other…").tag(Self.otherHostSentinel)
+        }
+    }
+
+    private var pickerHostBinding: Binding<String> {
+        Binding(
+            get: { viewModel.selectedTarget?.host ?? Self.otherHostSentinel },
+            set: { host in
+                viewModel.selectTarget(byHost: host == Self.otherHostSentinel ? nil : host)
+            }
+        )
+    }
+
+    // MARK: - Manual host text field
+
+    private var manualHostRow: some View {
+        LabeledContent("Address") {
+            TextField("IP address or hostname", text: $viewModel.manualHost)
+                .textFieldStyle(.roundedBorder)
+        }
+    }
+
+    // MARK: - Button bar
+
     private var buttonBar: some View {
         HStack(spacing: 8) {
             if viewModel.isScanComplete {
@@ -120,12 +174,12 @@ struct ScanPanelView: View {
     private var overviewDisabled: Bool {
         viewModel.isScanning || viewModel.isOverviewing
             || (InputSource(rawValue: inputSource) ?? .flatbed) == .adf
-            || ipAddress.trimmingCharacters(in: .whitespaces).isEmpty
+            || viewModel.activeHost == nil
     }
 
     private var scanDisabled: Bool {
         viewModel.isScanning || viewModel.isOverviewing
-            || ipAddress.trimmingCharacters(in: .whitespaces).isEmpty
+            || viewModel.activeHost == nil
     }
 
     // MARK: - Right panel
@@ -236,7 +290,6 @@ struct ScanPanelView: View {
     }
 
     private func syncSettings() {
-        viewModel.ipAddress = ipAddress
         viewModel.resolution = Resolution(rawValue: resolution) ?? .dpi300
         viewModel.colorMode = ColorMode(rawValue: colorMode) ?? .grayscale
         viewModel.paperSize = PaperSize(rawValue: paperSize) ?? .letter

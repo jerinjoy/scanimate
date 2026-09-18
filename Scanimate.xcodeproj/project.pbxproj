@@ -10,6 +10,9 @@
 		12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */; };
 		2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */; };
 		2C8BF71C483F4CFE1A73C8E9 /* WSDScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */; };
+		AA1B2C3D4E5F6A7B8C9D0E1F /* ScannerTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1B2C3D4E5F6A7B8C9D0E1F /* ScannerTarget.swift */; };
+		BA1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscovery.swift */; };
+		CA1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscoveryTests.swift */; };
 		2CE74083074DB754135DD280 /* SelectionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFA96FD4E15608545F434B6 /* SelectionOverlayView.swift */; };
 		4D0C15029EE54A08351967CC /* ScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D440037843B813A495A54B /* ScanViewModel.swift */; };
 		587A0E1420C740115E489C13 /* GetScannerElementsResponse.xml in Resources */ = {isa = PBXBuildFile; fileRef = 8B3D9F023C5BA0696526F6F0 /* GetScannerElementsResponse.xml */; };
@@ -44,6 +47,9 @@
 		883514F4A8BD64AB7A02F869 /* ScanError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanError.swift; sourceTree = "<group>"; };
 		8B3D9F023C5BA0696526F6F0 /* GetScannerElementsResponse.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = GetScannerElementsResponse.xml; sourceTree = "<group>"; };
 		A00143B209D5585F36B1D8AB /* WSDScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSDScanner.swift; sourceTree = "<group>"; };
+		AB1B2C3D4E5F6A7B8C9D0E1F /* ScannerTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerTarget.swift; sourceTree = "<group>"; };
+		BB1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSScannerDiscovery.swift; sourceTree = "<group>"; };
+		CB1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSScannerDiscoveryTests.swift; sourceTree = "<group>"; };
 		A44D61F111A13B7479CBDD62 /* ScanmateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScanmateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5D440037843B813A495A54B /* ScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModel.swift; sourceTree = "<group>"; };
 		CE9A4F228C0A65AA04844617 /* ScanJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanJob.swift; sourceTree = "<group>"; };
@@ -86,6 +92,7 @@
 			children = (
 				883514F4A8BD64AB7A02F869 /* ScanError.swift */,
 				CE9A4F228C0A65AA04844617 /* ScanJob.swift */,
+				AB1B2C3D4E5F6A7B8C9D0E1F /* ScannerTarget.swift */,
 				F3B86F3C3AB3265026FF797E /* ScanTicket.swift */,
 			);
 			path = Domain;
@@ -95,6 +102,7 @@
 			isa = PBXGroup;
 			children = (
 				A00143B209D5585F36B1D8AB /* WSDScanner.swift */,
+				BB1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscovery.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -129,6 +137,7 @@
 				49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */,
 				1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */,
 				4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */,
+				CB1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscoveryTests.swift */,
 				18E0C5218DED860CD8E3F227 /* Fixtures */,
 			);
 			path = ScanmateTests;
@@ -242,6 +251,8 @@
 				2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */,
 				2CE74083074DB754135DD280 /* SelectionOverlayView.swift in Sources */,
 				AED404C026FEBF04571C4F96 /* WSDScanner.swift in Sources */,
+				AA1B2C3D4E5F6A7B8C9D0E1F /* ScannerTarget.swift in Sources */,
+				BA1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscovery.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,6 +263,7 @@
 				12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */,
 				6CA91DC3B8D8FF39BC59237F /* URLProtocolStub.swift in Sources */,
 				2C8BF71C483F4CFE1A73C8E9 /* WSDScannerTests.swift in Sources */,
+				CA1B2C3D4E5F6A7B8C9D0E1F /* WSScannerDiscoveryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -36,6 +36,37 @@ actor MockScanner: WSDScannerProtocol {
     }
 }
 
+// MARK: - Mock discovery
+
+actor MockDiscovery: ScannerDiscoveryProtocol {
+    private let canned: [ScannerTarget]
+
+    init(targets: [ScannerTarget] = []) {
+        self.canned = targets
+    }
+
+    func start(onFound: @escaping @Sendable (ScannerTarget) -> Void) async {
+        for target in canned {
+            onFound(target)
+        }
+    }
+
+    func stop() async {}
+}
+
+// MARK: - Helpers
+
+@MainActor
+private func makeVM(
+    mock: MockScanner,
+    discoveryTargets: [ScannerTarget] = []
+) -> ScanViewModel {
+    ScanViewModel(
+        scannerFactory: { _ in mock },
+        discoveryFactory: { MockDiscovery(targets: discoveryTargets) }
+    )
+}
+
 // MARK: - Tests
 
 @MainActor
@@ -47,12 +78,11 @@ final class ScanViewModelTests: XCTestCase {
             states: [.checkingScanner, .creatingJob(attempt: 1), .retrievingPage(1)],
             result: .success([jpeg])
         )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
 
-        // Poll until complete or timeout
         try await waitForCondition(timeout: 2) { vm.isScanComplete }
 
         if case .complete(let pages) = vm.jobState {
@@ -65,18 +95,16 @@ final class ScanViewModelTests: XCTestCase {
     }
 
     func testProgressMessageDuringScanning() async throws {
-        // Track state messages emitted
         let mock = MockScanner(
             states: [.checkingScanner, .creatingJob(attempt: 1), .retrievingPage(1)],
             result: .success([Fixtures.minimalJPEG])
         )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
         vm.startScan()
 
         try await waitForCondition(timeout: 2) { vm.isScanComplete }
 
-        // After completion the message changes to "Scan complete."
         XCTAssertEqual(vm.statusMessage, "Scan complete.")
     }
 
@@ -85,8 +113,8 @@ final class ScanViewModelTests: XCTestCase {
             states: [.checkingScanner],
             result: .success([Fixtures.minimalJPEG])
         )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
         vm.startScan()
 
         try await waitForCondition(timeout: 2) { !vm.isScanning }
@@ -95,8 +123,8 @@ final class ScanViewModelTests: XCTestCase {
 
     func testUnreachableErrorSetsAlert() async throws {
         let mock = MockScanner(states: [], result: .failure(ScanError.unreachable(host: "192.168.1.66")))
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.alertError != nil }
@@ -110,8 +138,8 @@ final class ScanViewModelTests: XCTestCase {
 
     func testNoDocumentErrorSetsAlert() async throws {
         let mock = MockScanner(states: [], result: .failure(ScanError.noDocument))
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.alertError != nil }
@@ -125,8 +153,8 @@ final class ScanViewModelTests: XCTestCase {
 
     func testPrinterBusyErrorSetsAlert() async throws {
         let mock = MockScanner(states: [], result: .failure(ScanError.printerBusy))
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.alertError != nil }
@@ -137,8 +165,8 @@ final class ScanViewModelTests: XCTestCase {
 
     func testProtocolErrorSetsAlert() async throws {
         let mock = MockScanner(states: [], result: .failure(ScanError.protocolError("unexpected XML")))
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.alertError != nil }
@@ -151,7 +179,6 @@ final class ScanViewModelTests: XCTestCase {
     }
 
     func testCancelSetsJobStateCancelled() async throws {
-        // Scanner that emits one state then blocks until the task is cancelled
         actor BlockingScanner: WSDScannerProtocol {
             func scan(ticket: ScanTicket, onState: @Sendable (ScanJob) async -> Void) async throws -> [Data] {
                 await onState(.checkingScanner)
@@ -162,7 +189,7 @@ final class ScanViewModelTests: XCTestCase {
         }
 
         let vm = ScanViewModel(scannerFactory: { _ in BlockingScanner() })
-        vm.ipAddress = "192.168.1.66"
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
         try await waitForCondition(timeout: 1) { vm.isScanning }
@@ -173,8 +200,8 @@ final class ScanViewModelTests: XCTestCase {
 
     func testResetForNextScanClearsState() async throws {
         let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.isScanComplete }
@@ -200,7 +227,7 @@ final class ScanViewModelTests: XCTestCase {
         }
 
         let vm = ScanViewModel(scannerFactory: { _ in DelayedOverviewScanner() })
-        vm.ipAddress = "192.168.1.66"
+        vm.manualHost = "192.168.1.66"
 
         vm.startOverview()
         try await waitForCondition(timeout: 1) { vm.isOverviewing }
@@ -218,8 +245,8 @@ final class ScanViewModelTests: XCTestCase {
             result: .success([]),
             overviewResult: .success(jpeg)
         )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startOverview()
         try await waitForCondition(timeout: 2) { !vm.isOverviewing && vm.overviewImage != nil }
@@ -234,8 +261,8 @@ final class ScanViewModelTests: XCTestCase {
             result: .success([]),
             overviewResult: .success(Fixtures.minimalJPEG)
         )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
         vm.selectedRegion = ScanRegion(xOffset: 100, yOffset: 100, width: 5000, height: 5000)
 
         vm.startOverview()
@@ -246,8 +273,8 @@ final class ScanViewModelTests: XCTestCase {
 
     func testStartScanPassesSelectedRegionToTicket() async throws {
         let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         let region = ScanRegion(xOffset: 1000, yOffset: 2000, width: 5000, height: 6000)
         vm.selectedRegion = region
@@ -265,14 +292,124 @@ final class ScanViewModelTests: XCTestCase {
             result: .success([]),
             overviewResult: .failure(ScanError.unreachable(host: "192.168.1.66"))
         )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
-        vm.ipAddress = "192.168.1.66"
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
 
         vm.startOverview()
         try await waitForCondition(timeout: 2) { vm.alertError != nil }
 
         XCTAssertEqual(vm.alertError, ScanError.unreachable(host: "192.168.1.66"))
         XCTAssertFalse(vm.isOverviewing)
+    }
+
+    // MARK: - selectedTarget tests
+
+    func testActiveHostFromSelectedTarget() {
+        let vm = ScanViewModel()
+        let target = ScannerTarget(host: "10.0.0.5", displayName: "Samsung M2070", source: .discovered)
+        vm.selectedTarget = target
+        XCTAssertEqual(vm.activeHost, "10.0.0.5")
+    }
+
+    func testActiveHostFromManualHostWhenNoTargetSelected() {
+        let vm = ScanViewModel()
+        vm.selectedTarget = nil
+        vm.manualHost = "192.168.1.99"
+        XCTAssertEqual(vm.activeHost, "192.168.1.99")
+    }
+
+    func testActiveHostNilWhenNeitherSet() {
+        let vm = ScanViewModel()
+        vm.selectedTarget = nil
+        vm.manualHost = "   "
+        XCTAssertNil(vm.activeHost)
+    }
+
+    func testScanUsesSelectedTargetHost() async throws {
+        let capturedHost = CapturedHost()
+        let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
+        let vm = ScanViewModel(
+            scannerFactory: { host in Task { await capturedHost.set(host) }; return mock },
+            discoveryFactory: { MockDiscovery() }
+        )
+        let target = ScannerTarget(host: "10.0.0.42", displayName: nil, source: .discovered)
+        vm.selectedTarget = target
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.isScanComplete }
+
+        let host = await capturedHost.value
+        XCTAssertEqual(host, "10.0.0.42")
+    }
+
+    // MARK: - Discovery integration tests
+
+    func testStartDiscoverySetsIsDiscovering() async throws {
+        struct SlowDiscovery: ScannerDiscoveryProtocol {
+            func start(onFound: @escaping @Sendable (ScannerTarget) -> Void) async {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+            }
+            func stop() async {}
+        }
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { SlowDiscovery() }
+        )
+
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 1) { vm.isDiscovering }
+        XCTAssertTrue(vm.isDiscovering)
+
+        vm.stopDiscovery()
+        try await waitForCondition(timeout: 2) { !vm.isDiscovering }
+        XCTAssertFalse(vm.isDiscovering)
+    }
+
+    func testIsDiscoveringDropsToFalseAfterProbeCompletes() async throws {
+        // start() is truly async — isDiscovering must be false after each probe.
+        let transport = MockDiscoveryTransport(responses: [])
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { WSScannerDiscovery(transport: transport) }
+        )
+
+        vm.startDiscovery()
+        // Wait for at least one full probe cycle to complete.
+        try await waitForCondition(timeout: 5) { !vm.isDiscovering }
+        XCTAssertFalse(vm.isDiscovering)
+    }
+
+    func testDiscoveredTargetsPopulateFromDiscovery() async throws {
+        let targets = [
+            ScannerTarget(host: "10.0.0.1", displayName: "Scanner A", source: .discovered),
+            ScannerTarget(host: "10.0.0.2", displayName: "Scanner B", source: .discovered),
+        ]
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery(targets: targets) }
+        )
+
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 2) { vm.discoveredTargets.count >= 2 }
+
+        XCTAssertEqual(vm.discoveredTargets.count, 2)
+        XCTAssertTrue(vm.discoveredTargets.contains { $0.host == "10.0.0.1" })
+        XCTAssertTrue(vm.discoveredTargets.contains { $0.host == "10.0.0.2" })
+    }
+
+    func testDuplicateDiscoveredTargetsAreDeduped() async throws {
+        let duplicate = ScannerTarget(host: "10.0.0.1", displayName: nil, source: .discovered)
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery(targets: [duplicate, duplicate]) }
+        )
+
+        vm.startDiscovery()
+        // Wait until at least the first callback has been processed.
+        try await waitForCondition(timeout: 2) { vm.discoveredTargets.count >= 1 }
+        // Yield briefly so any remaining pending callbacks (the duplicate) also run.
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(vm.discoveredTargets.count, 1)
     }
 
     // MARK: - Helpers
@@ -287,4 +424,11 @@ final class ScanViewModelTests: XCTestCase {
             try await Task.sleep(nanoseconds: 10_000_000) // 10ms
         }
     }
+}
+
+// MARK: - Thread-safe host capture
+
+actor CapturedHost {
+    private(set) var value: String?
+    func set(_ host: String) { value = host }
 }
