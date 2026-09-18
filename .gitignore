@@ -1,13 +1,12 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
+# Build artifacts
+*.o
+*.d
 build/
-dist/
-wheels/
-*.egg-info
+DerivedData/
 
-# Virtual environments
-.venv
+# Xcode user data
+*.xcuserstate
+xcuserdata/
 
 # Scan output files
 *.png
