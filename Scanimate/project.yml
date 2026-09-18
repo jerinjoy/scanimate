@@ -50,6 +50,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.jerinjoy.scanimate.tests
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "13.0"
+        GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Scanimate.app/Contents/MacOS/Scanimate"
         BUNDLE_LOADER: "$(TEST_HOST)"
 

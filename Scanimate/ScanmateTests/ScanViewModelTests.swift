@@ -139,23 +139,22 @@ final class ScanViewModelTests: XCTestCase {
     }
 
     func testCancelSetsJobStateCancelled() async throws {
-        // Mock scanner will wait for cancellation
-        let mock = MockScanner(
-            states: [.checkingScanner, .creatingJob(attempt: 1)],
-            result: .success([])
-        )
-        let vm = ScanViewModel(scannerFactory: { _ in mock })
+        // Scanner that emits one state then blocks until the task is cancelled
+        actor BlockingScanner: WSDScannerProtocol {
+            func scan(ticket: ScanTicket, onState: @Sendable (ScanJob) async -> Void) async throws -> [Data] {
+                await onState(.checkingScanner)
+                try await Task.sleep(nanoseconds: 60_000_000_000)
+                return []
+            }
+        }
+
+        let vm = ScanViewModel(scannerFactory: { _ in BlockingScanner() })
         vm.ipAddress = "192.168.1.66"
 
         vm.startScan()
-
-        // Let it enter scanning state
         try await waitForCondition(timeout: 1) { vm.isScanning }
         vm.cancelScan()
-
         try await waitForCondition(timeout: 2) { !vm.isScanning }
-        // After cancellation, state should be .cancelled (or complete if mock already finished)
-        // Just verify it's no longer scanning
         XCTAssertFalse(vm.isScanning)
     }
 
