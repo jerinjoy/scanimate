@@ -6,21 +6,33 @@ import XCTest
 actor MockScanner: WSDScannerProtocol {
     let stateSequence: [ScanJob]
     let finalResult: Result<[Data], Error>
+    let overviewResult: Result<Data, Error>
+    private(set) var capturedTicket: ScanTicket?
 
-    init(states: [ScanJob], result: Result<[Data], Error>) {
+    init(
+        states: [ScanJob],
+        result: Result<[Data], Error>,
+        overviewResult: Result<Data, Error> = .success(Fixtures.minimalJPEG)
+    ) {
         self.stateSequence = states
         self.finalResult = result
+        self.overviewResult = overviewResult
     }
 
     func scan(
         ticket: ScanTicket,
         onState: @Sendable (ScanJob) async -> Void
     ) async throws -> [Data] {
+        capturedTicket = ticket
         for state in stateSequence {
             try Task.checkCancellation()
             await onState(state)
         }
         return try finalResult.get()
+    }
+
+    func overview() async throws -> Data {
+        return try overviewResult.get()
     }
 }
 
@@ -146,6 +158,7 @@ final class ScanViewModelTests: XCTestCase {
                 try await Task.sleep(nanoseconds: 60_000_000_000)
                 return []
             }
+            func overview() async throws -> Data { Data() }
         }
 
         let vm = ScanViewModel(scannerFactory: { _ in BlockingScanner() })
@@ -173,6 +186,93 @@ final class ScanViewModelTests: XCTestCase {
         XCTAssertNil(vm.alertError)
         XCTAssertFalse(vm.isScanning)
         XCTAssertFalse(vm.isScanComplete)
+    }
+
+    // MARK: - Overview tests
+
+    func testStartOverviewSetsIsOverviewing() async throws {
+        actor DelayedOverviewScanner: WSDScannerProtocol {
+            func scan(ticket: ScanTicket, onState: @Sendable (ScanJob) async -> Void) async throws -> [Data] { [] }
+            func overview() async throws -> Data {
+                try await Task.sleep(nanoseconds: 60_000_000_000)
+                return Data()
+            }
+        }
+
+        let vm = ScanViewModel(scannerFactory: { _ in DelayedOverviewScanner() })
+        vm.ipAddress = "192.168.1.66"
+
+        vm.startOverview()
+        try await waitForCondition(timeout: 1) { vm.isOverviewing }
+        XCTAssertTrue(vm.isOverviewing)
+
+        vm.overviewTask?.cancel()
+        try await waitForCondition(timeout: 2) { !vm.isOverviewing }
+        XCTAssertFalse(vm.isOverviewing)
+    }
+
+    func testStartOverviewPopulatesOverviewImage() async throws {
+        let jpeg = Fixtures.minimalJPEG
+        let mock = MockScanner(
+            states: [],
+            result: .success([]),
+            overviewResult: .success(jpeg)
+        )
+        let vm = ScanViewModel(scannerFactory: { _ in mock })
+        vm.ipAddress = "192.168.1.66"
+
+        vm.startOverview()
+        try await waitForCondition(timeout: 2) { !vm.isOverviewing && vm.overviewImage != nil }
+
+        XCTAssertEqual(vm.overviewImage, jpeg)
+        XCTAssertFalse(vm.isOverviewing)
+    }
+
+    func testStartOverviewResetsSelectedRegion() async throws {
+        let mock = MockScanner(
+            states: [],
+            result: .success([]),
+            overviewResult: .success(Fixtures.minimalJPEG)
+        )
+        let vm = ScanViewModel(scannerFactory: { _ in mock })
+        vm.ipAddress = "192.168.1.66"
+        vm.selectedRegion = ScanRegion(xOffset: 100, yOffset: 100, width: 5000, height: 5000)
+
+        vm.startOverview()
+        try await waitForCondition(timeout: 2) { !vm.isOverviewing }
+
+        XCTAssertNil(vm.selectedRegion)
+    }
+
+    func testStartScanPassesSelectedRegionToTicket() async throws {
+        let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
+        let vm = ScanViewModel(scannerFactory: { _ in mock })
+        vm.ipAddress = "192.168.1.66"
+
+        let region = ScanRegion(xOffset: 1000, yOffset: 2000, width: 5000, height: 6000)
+        vm.selectedRegion = region
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.isScanComplete }
+
+        let captured = await mock.capturedTicket
+        XCTAssertEqual(captured?.scanRegion, region)
+    }
+
+    func testOverviewErrorSetsAlertError() async throws {
+        let mock = MockScanner(
+            states: [],
+            result: .success([]),
+            overviewResult: .failure(ScanError.unreachable(host: "192.168.1.66"))
+        )
+        let vm = ScanViewModel(scannerFactory: { _ in mock })
+        vm.ipAddress = "192.168.1.66"
+
+        vm.startOverview()
+        try await waitForCondition(timeout: 2) { vm.alertError != nil }
+
+        XCTAssertEqual(vm.alertError, ScanError.unreachable(host: "192.168.1.66"))
+        XCTAssertFalse(vm.isOverviewing)
     }
 
     // MARK: - Helpers

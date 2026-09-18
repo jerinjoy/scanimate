@@ -195,6 +195,25 @@ actor StateCollector {
     var values: [Int] { _values }
 }
 
+// MARK: - URLRequest body helper
+
+extension URLRequest {
+    var resolvedBodyData: Data? {
+        if let body = httpBody { return body }
+        guard let stream = httpBodyStream else { return nil }
+        var data = Data()
+        stream.open()
+        let bufferSize = 4096
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate(); stream.close() }
+        while stream.hasBytesAvailable {
+            let count = stream.read(buffer, maxLength: bufferSize)
+            if count > 0 { data.append(buffer, count: count) }
+        }
+        return data
+    }
+}
+
 // MARK: - Convenience HTTP response builder
 
 extension HTTPURLResponse {

@@ -10,13 +10,15 @@ struct ScanPanelView: View {
     @AppStorage("inputSource") private var inputSource: String = InputSource.flatbed.rawValue
 
     var body: some View {
-        VStack(spacing: 0) {
-            settingsSection
+        HStack(spacing: 0) {
+            leftPanel
+                .frame(width: 260)
             Divider()
-            actionSection
+            rightPanel
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .alert(
-            "Scan Error",
+            "Scanner Error",
             isPresented: Binding(
                 get: { viewModel.alertError != nil },
                 set: { if !$0 { viewModel.alertError = nil } }
@@ -30,9 +32,17 @@ struct ScanPanelView: View {
         .onAppear { syncSettings() }
     }
 
-    // MARK: - Settings section
+    // MARK: - Left panel
 
-    private var settingsSection: some View {
+    private var leftPanel: some View {
+        VStack(spacing: 0) {
+            settingsForm
+            Divider()
+            buttonBar
+        }
+    }
+
+    private var settingsForm: some View {
         Form {
             Section("Scanner") {
                 LabeledContent("IP Address") {
@@ -81,26 +91,101 @@ struct ScanPanelView: View {
             }
         }
         .formStyle(.grouped)
-        .disabled(viewModel.isScanning)
+        .disabled(viewModel.isScanning || viewModel.isOverviewing)
     }
 
-    // MARK: - Action section
-
-    private var actionSection: some View {
-        VStack(spacing: 16) {
-            if viewModel.isScanning {
-                progressArea
-            } else if viewModel.isScanComplete {
-                previewArea
+    private var buttonBar: some View {
+        HStack(spacing: 8) {
+            if viewModel.isScanComplete {
+                Button("Save…") { viewModel.save() }
+                    .buttonStyle(.borderedProminent)
+                Button("Scan Again") { viewModel.resetForNextScan() }
+                    .buttonStyle(.bordered)
             } else {
-                Spacer().frame(height: 20)
+                Button("Overview") { startOverview() }
+                    .buttonStyle(.bordered)
+                    .disabled(overviewDisabled)
+                Button("Scan") { startScan() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(scanDisabled)
+                if viewModel.isScanning {
+                    Button("Cancel") { viewModel.cancelScan() }
+                        .buttonStyle(.bordered)
+                }
             }
-            buttonRow
         }
+        .padding(12)
+    }
+
+    private var overviewDisabled: Bool {
+        viewModel.isScanning || viewModel.isOverviewing
+            || (InputSource(rawValue: inputSource) ?? .flatbed) == .adf
+            || ipAddress.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var scanDisabled: Bool {
+        viewModel.isScanning || viewModel.isOverviewing
+            || ipAddress.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    // MARK: - Right panel
+
+    @ViewBuilder
+    private var rightPanel: some View {
+        if viewModel.isScanning {
+            scanProgressPanel
+        } else if viewModel.isScanComplete {
+            scanResultPanel
+        } else if viewModel.isOverviewing {
+            overviewProgressPanel
+        } else if let data = viewModel.overviewImage {
+            overviewResultPanel(data: data)
+        } else {
+            emptyInstructionPanel
+        }
+    }
+
+    private var emptyInstructionPanel: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "scanner")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("Press Overview to preview the scanner bed.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
     }
 
-    private var progressArea: some View {
+    private var overviewProgressPanel: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .scaleEffect(1.2)
+            Text("Scanning overview…")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func overviewResultPanel(data: Data) -> some View {
+        Group {
+            if let nsImage = NSImage(data: data) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .overlay(SelectionOverlayView(region: $viewModel.selectedRegion))
+                    .padding(16)
+            } else {
+                emptyInstructionPanel
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var scanProgressPanel: some View {
         VStack(spacing: 12) {
             ProgressView()
                 .scaleEffect(1.2)
@@ -108,21 +193,20 @@ struct ScanPanelView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
-    private var previewArea: some View {
+    private var scanResultPanel: some View {
         if let first = viewModel.previewPages.first,
            let nsImage = NSImage(data: first) {
             ZStack(alignment: .topTrailing) {
                 Image(nsImage: nsImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: 280)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .shadow(radius: 4)
+                    .padding(16)
 
                 if viewModel.previewPages.count > 1 {
                     Text("\(viewModel.previewPages.count) pages")
@@ -132,29 +216,10 @@ struct ScanPanelView: View {
                         .background(.tint)
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
-                        .padding(8)
+                        .padding(24)
                 }
             }
-        }
-    }
-
-    private var buttonRow: some View {
-        HStack(spacing: 12) {
-            if viewModel.isScanComplete {
-                Button("Save…") { viewModel.save() }
-                    .buttonStyle(.borderedProminent)
-                Button("Scan Again") { viewModel.resetForNextScan() }
-                    .buttonStyle(.bordered)
-            } else {
-                Button("Scan") { startScan() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.isScanning || ipAddress.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                if viewModel.isScanning {
-                    Button("Cancel") { viewModel.cancelScan() }
-                        .buttonStyle(.bordered)
-                }
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -163,6 +228,11 @@ struct ScanPanelView: View {
     private func startScan() {
         syncSettings()
         viewModel.startScan()
+    }
+
+    private func startOverview() {
+        syncSettings()
+        viewModel.startOverview()
     }
 
     private func syncSettings() {

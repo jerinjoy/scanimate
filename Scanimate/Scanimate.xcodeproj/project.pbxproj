@@ -10,6 +10,7 @@
 		12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */; };
 		2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */; };
 		2C8BF71C483F4CFE1A73C8E9 /* WSDScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */; };
+		2CE74083074DB754135DD280 /* SelectionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EFA96FD4E15608545F434B6 /* SelectionOverlayView.swift */; };
 		4D0C15029EE54A08351967CC /* ScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D440037843B813A495A54B /* ScanViewModel.swift */; };
 		587A0E1420C740115E489C13 /* GetScannerElementsResponse.xml in Resources */ = {isa = PBXBuildFile; fileRef = 8B3D9F023C5BA0696526F6F0 /* GetScannerElementsResponse.xml */; };
 		6CA91DC3B8D8FF39BC59237F /* URLProtocolStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */; };
@@ -36,6 +37,7 @@
 		059CA5BA5FEEFC9C28B36201 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		17EEE03EA1E5D8BF241516F0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLProtocolStub.swift; sourceTree = "<group>"; };
+		3EFA96FD4E15608545F434B6 /* SelectionOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionOverlayView.swift; sourceTree = "<group>"; };
 		4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSDScannerTests.swift; sourceTree = "<group>"; };
 		433DF89293AF1D828103C2BC /* Scanimate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scanimate.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModelTests.swift; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 			children = (
 				17EEE03EA1E5D8BF241516F0 /* ContentView.swift */,
 				FCAA20241FE27843780B15C2 /* ScanPanelView.swift */,
+				3EFA96FD4E15608545F434B6 /* SelectionOverlayView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -237,6 +240,7 @@
 				FA4ABA0BE2F87F22694884CF /* ScanTicket.swift in Sources */,
 				4D0C15029EE54A08351967CC /* ScanViewModel.swift in Sources */,
 				2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */,
+				2CE74083074DB754135DD280 /* SelectionOverlayView.swift in Sources */,
 				AED404C026FEBF04571C4F96 /* WSDScanner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -7,6 +7,7 @@ protocol WSDScannerProtocol: Sendable {
         ticket: ScanTicket,
         onState: @Sendable (ScanJob) async -> Void
     ) async throws -> [Data]
+    func overview() async throws -> Data
 }
 
 // MARK: - Actor
@@ -80,6 +81,31 @@ actor WSDScanner: WSDScannerProtocol {
 
         activeJobId = nil
         return pages
+    }
+
+    func overview() async throws -> Data {
+        _ = try await getScannerElements()
+        try Task.checkCancellation()
+
+        let ticket = ScanTicket(
+            resolution: .dpi75,
+            colorMode: .grayscale,
+            paperSize: .letter,
+            source: .flatbed
+        )
+        let action = "\(WSDScanner.nsScan)/CreateScanJob"
+        let body = scanJobBody(ticket: ticket)
+        let (_, responseData) = try await soapPost(action: action, body: body, timeout: 30)
+        let xml = try parseXML(responseData)
+        guard let jobId = xmlText(xml, local: "JobId"),
+              !jobId.trimmingCharacters(in: .whitespaces).isEmpty else {
+            throw ScanError.noDocument
+        }
+        let jobToken = xmlText(xml, local: "JobToken") ?? ""
+        return try await retrieveImage(
+            jobId: jobId.trimmingCharacters(in: .whitespaces),
+            jobToken: jobToken.trimmingCharacters(in: .whitespaces)
+        )
     }
 
     // MARK: - WSD operations
@@ -251,8 +277,21 @@ actor WSDScanner: WSDScannerProtocol {
     }
 
     private func scanJobBody(ticket: ScanTicket) -> String {
-        let w = ticket.paperSize.width
-        let h = ticket.paperSize.height
+        let mediaW: Int
+        let mediaH: Int
+        let xOffset: Int
+        let yOffset: Int
+        if let region = ticket.scanRegion {
+            mediaW = region.width
+            mediaH = region.height
+            xOffset = region.xOffset
+            yOffset = region.yOffset
+        } else {
+            mediaW = ticket.paperSize.width
+            mediaH = ticket.paperSize.height
+            xOffset = 0
+            yOffset = 0
+        }
         let imagesToTransfer = ticket.source == .adf ? 0 : 1
         return """
             <sca:CreateScanJobRequest>
@@ -270,8 +309,8 @@ actor WSDScanner: WSDScannerProtocol {
                   <sca:InputSize>
                     <sca:DocumentSizeAutoDetect>false</sca:DocumentSizeAutoDetect>
                     <sca:InputMediaSize>
-                      <sca:Width>\(w)</sca:Width>
-                      <sca:Height>\(h)</sca:Height>
+                      <sca:Width>\(mediaW)</sca:Width>
+                      <sca:Height>\(mediaH)</sca:Height>
                     </sca:InputMediaSize>
                   </sca:InputSize>
                   <sca:Exposure><sca:AutoExposure>true</sca:AutoExposure></sca:Exposure>
@@ -282,10 +321,10 @@ actor WSDScanner: WSDScannerProtocol {
                   <sca:MediaSides>
                     <sca:MediaFront>
                       <sca:ScanRegion>
-                        <sca:ScanRegionXOffset>0</sca:ScanRegionXOffset>
-                        <sca:ScanRegionYOffset>0</sca:ScanRegionYOffset>
-                        <sca:ScanRegionWidth>\(w)</sca:ScanRegionWidth>
-                        <sca:ScanRegionHeight>\(h)</sca:ScanRegionHeight>
+                        <sca:ScanRegionXOffset>\(xOffset)</sca:ScanRegionXOffset>
+                        <sca:ScanRegionYOffset>\(yOffset)</sca:ScanRegionYOffset>
+                        <sca:ScanRegionWidth>\(mediaW)</sca:ScanRegionWidth>
+                        <sca:ScanRegionHeight>\(mediaH)</sca:ScanRegionHeight>
                       </sca:ScanRegion>
                       <sca:ColorProcessing>\(ticket.colorMode.rawValue)</sca:ColorProcessing>
                       <sca:Resolution>

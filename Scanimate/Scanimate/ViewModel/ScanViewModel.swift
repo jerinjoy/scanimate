@@ -17,8 +17,14 @@ final class ScanViewModel: ObservableObject {
     @Published var alertError: ScanError?
     @Published private(set) var previewPages: [Data] = []
 
+    // MARK: - Overview state
+    @Published private(set) var isOverviewing: Bool = false
+    @Published private(set) var overviewImage: Data? = nil
+    @Published var selectedRegion: ScanRegion? = nil
+
     // MARK: - Internal
     private(set) var scanTask: Task<Void, Never>?
+    private(set) var overviewTask: Task<Void, Never>?
     private var scannerFactory: @Sendable (String) -> any WSDScannerProtocol
 
     var isScanning: Bool {
@@ -62,13 +68,15 @@ final class ScanViewModel: ObservableObject {
 
     func startScan() {
         guard !ipAddress.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        overviewTask?.cancel()
         let scanner = scannerFactory(ipAddress.trimmingCharacters(in: .whitespaces))
-        let ticket = ScanTicket(
+        var ticket = ScanTicket(
             resolution: resolution,
             colorMode: colorMode,
             paperSize: paperSize,
             source: inputSource
         )
+        ticket.scanRegion = selectedRegion
 
         scanTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -91,6 +99,33 @@ final class ScanViewModel: ObservableObject {
         }
     }
 
+    func startOverview() {
+        guard !ipAddress.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let scanner = scannerFactory(ipAddress.trimmingCharacters(in: .whitespaces))
+
+        selectedRegion = nil
+        isOverviewing = true
+        overviewImage = nil
+
+        overviewTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let data = try await scanner.overview()
+                self.overviewImage = data
+                self.isOverviewing = false
+            } catch is CancellationError {
+                self.isOverviewing = false
+            } catch let error as ScanError {
+                self.isOverviewing = false
+                self.alertError = error
+            } catch {
+                self.isOverviewing = false
+                let se = ScanError.protocolError(error.localizedDescription)
+                self.alertError = se
+            }
+        }
+    }
+
     func cancelScan() {
         scanTask?.cancel()
     }
@@ -100,6 +135,7 @@ final class ScanViewModel: ObservableObject {
         jobState = nil
         previewPages = []
         alertError = nil
+        // selectedRegion and overviewImage persist across scans within a session
     }
 
     // MARK: - Save
@@ -181,4 +217,3 @@ final class ScanViewModel: ObservableObject {
         }
     }
 }
-

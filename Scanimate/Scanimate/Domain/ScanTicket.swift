@@ -60,9 +60,17 @@ enum InputSource: String, CaseIterable, Codable {
     }
 }
 
+struct ScanRegion: Equatable, Codable {
+    var xOffset: Int
+    var yOffset: Int
+    var width: Int
+    var height: Int
+}
+
 struct ScanTicket: Codable {
     var resolution: Resolution
     var colorMode: ColorMode
     var paperSize: PaperSize
     var source: InputSource
+    var scanRegion: ScanRegion?
 }

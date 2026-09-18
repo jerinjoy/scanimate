@@ -204,6 +204,75 @@ final class WSDScannerTests: XCTestCase {
             XCTAssertFalse(page.isEmpty)
         }
     }
+
+    // MARK: - Overview: happy path
+
+    func testOverviewHappyPath() async throws {
+        var requestCount = 0
+        URLProtocolStub.requestHandler = { request in
+            requestCount += 1
+            switch requestCount {
+            case 1: // GetScannerElements
+                return (.ok(), Fixtures.getScannerElementsResponse())
+            case 2: // CreateScanJob
+                return (.ok(), Fixtures.createScanJobResponse())
+            case 3: // RetrieveImage
+                let (ct, body) = Fixtures.retrieveImageResponse()
+                return (.ok(contentType: ct), body)
+            default:
+                throw URLError(.badServerResponse)
+            }
+        }
+
+        let scanner = WSDScanner(host: "192.168.1.66", session: .stubbed())
+        let data = try await scanner.overview()
+
+        XCTAssertFalse(data.isEmpty, "Overview should return JPEG data")
+        XCTAssertEqual(requestCount, 3, "Overview should make exactly 3 HTTP requests")
+    }
+
+    // MARK: - Scan region embedded in SOAP body
+
+    func testScanWithRegionEmbedsRegionInSoapBody() async throws {
+        var capturedCreateJobBody: String?
+        var requestCount = 0
+        URLProtocolStub.requestHandler = { request in
+            requestCount += 1
+            switch requestCount {
+            case 1:
+                return (.ok(), Fixtures.getScannerElementsResponse())
+            case 2:
+                capturedCreateJobBody = request.resolvedBodyData.flatMap { String(data: $0, encoding: .utf8) }
+                return (.ok(), Fixtures.createScanJobResponse())
+            case 3:
+                let (ct, body) = Fixtures.retrieveImageResponse()
+                return (.ok(contentType: ct), body)
+            default:
+                throw URLError(.badServerResponse)
+            }
+        }
+
+        let scanner = WSDScanner(host: "192.168.1.66", session: .stubbed())
+        let region = ScanRegion(xOffset: 1000, yOffset: 2000, width: 5000, height: 6000)
+        let ticket = ScanTicket(
+            resolution: .dpi300,
+            colorMode: .grayscale,
+            paperSize: .letter,
+            source: .flatbed,
+            scanRegion: region
+        )
+
+        _ = try await scanner.scan(ticket: ticket) { _ in }
+
+        XCTAssertNotNil(capturedCreateJobBody)
+        let body = try XCTUnwrap(capturedCreateJobBody)
+        XCTAssertTrue(body.contains("<sca:ScanRegionXOffset>1000</sca:ScanRegionXOffset>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionYOffset>2000</sca:ScanRegionYOffset>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionWidth>5000</sca:ScanRegionWidth>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionHeight>6000</sca:ScanRegionHeight>"))
+        XCTAssertTrue(body.contains("<sca:Width>5000</sca:Width>"))
+        XCTAssertTrue(body.contains("<sca:Height>6000</sca:Height>"))
+    }
 }
 
 // MARK: - ScanJob debug description helper
