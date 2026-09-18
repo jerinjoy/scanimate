@@ -1,0 +1,73 @@
+name: Scanimate
+options:
+  bundleIdPrefix: com.jerinjoy
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15.0"
+  defaultConfig: Debug
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+  Scanimate:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - Scanimate
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jerinjoy.scanimate
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        CODE_SIGN_ENTITLEMENTS: Scanimate/Scanimate.entitlements
+        INFOPLIST_FILE: Scanimate/Info.plist
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_TESTABILITY: YES
+      debug:
+        SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        DEBUG_INFORMATION_FORMAT: dwarf
+      release:
+        SWIFT_OPTIMIZATION_LEVEL: "-O"
+        DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+
+  ScanmateTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - ScanmateTests
+    resources:
+      - path: ScanmateTests/Fixtures
+        type: folder
+    dependencies:
+      - target: Scanimate
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jerinjoy.scanimate.tests
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Scanimate.app/Contents/MacOS/Scanimate"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  Scanimate:
+    build:
+      targets:
+        Scanimate: all
+        ScanmateTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ScanmateTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

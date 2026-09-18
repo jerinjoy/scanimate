@@ -1,0 +1,495 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */; };
+		2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */; };
+		2C8BF71C483F4CFE1A73C8E9 /* WSDScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */; };
+		4D0C15029EE54A08351967CC /* ScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5D440037843B813A495A54B /* ScanViewModel.swift */; };
+		587A0E1420C740115E489C13 /* GetScannerElementsResponse.xml in Resources */ = {isa = PBXBuildFile; fileRef = 8B3D9F023C5BA0696526F6F0 /* GetScannerElementsResponse.xml */; };
+		6CA91DC3B8D8FF39BC59237F /* URLProtocolStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */; };
+		6FED2A999D2CF9F518F4EF5F /* ScanPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAA20241FE27843780B15C2 /* ScanPanelView.swift */; };
+		A64FC17AB4BCD0D0A2CA3014 /* ScanError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883514F4A8BD64AB7A02F869 /* ScanError.swift */; };
+		AED404C026FEBF04571C4F96 /* WSDScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00143B209D5585F36B1D8AB /* WSDScanner.swift */; };
+		C2543F12416C90DE78931E47 /* CreateScanJobResponse.xml in Resources */ = {isa = PBXBuildFile; fileRef = F5A031759D74B72C6C0104D3 /* CreateScanJobResponse.xml */; };
+		D4446ABA398A380CF1C69CF8 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17EEE03EA1E5D8BF241516F0 /* ContentView.swift */; };
+		E8AE98A0224EA40A840E191C /* ScanJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9A4F228C0A65AA04844617 /* ScanJob.swift */; };
+		FA4ABA0BE2F87F22694884CF /* ScanTicket.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B86F3C3AB3265026FF797E /* ScanTicket.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0E78707DFD32DFCD1F6CCE0A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A409510F381B3E0924FCB8F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D910BBC06251358DBBE7D82F;
+			remoteInfo = Scanimate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		059CA5BA5FEEFC9C28B36201 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		17EEE03EA1E5D8BF241516F0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLProtocolStub.swift; sourceTree = "<group>"; };
+		4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSDScannerTests.swift; sourceTree = "<group>"; };
+		433DF89293AF1D828103C2BC /* Scanimate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scanimate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModelTests.swift; sourceTree = "<group>"; };
+		883514F4A8BD64AB7A02F869 /* ScanError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanError.swift; sourceTree = "<group>"; };
+		8B3D9F023C5BA0696526F6F0 /* GetScannerElementsResponse.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = GetScannerElementsResponse.xml; sourceTree = "<group>"; };
+		A00143B209D5585F36B1D8AB /* WSDScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSDScanner.swift; sourceTree = "<group>"; };
+		A44D61F111A13B7479CBDD62 /* ScanmateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScanmateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5D440037843B813A495A54B /* ScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModel.swift; sourceTree = "<group>"; };
+		CE9A4F228C0A65AA04844617 /* ScanJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanJob.swift; sourceTree = "<group>"; };
+		E2F5979391E9ECD589FBC55C /* Scanimate.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Scanimate.entitlements; sourceTree = "<group>"; };
+		F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanimateApp.swift; sourceTree = "<group>"; };
+		F3B86F3C3AB3265026FF797E /* ScanTicket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanTicket.swift; sourceTree = "<group>"; };
+		F5A031759D74B72C6C0104D3 /* CreateScanJobResponse.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = CreateScanJobResponse.xml; sourceTree = "<group>"; };
+		FCAA20241FE27843780B15C2 /* ScanPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPanelView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		021D0CC35E5552B54CDA8B3F /* ViewModel */ = {
+			isa = PBXGroup;
+			children = (
+				B5D440037843B813A495A54B /* ScanViewModel.swift */,
+			);
+			path = ViewModel;
+			sourceTree = "<group>";
+		};
+		0A443823F94DF7D2617F8E56 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				433DF89293AF1D828103C2BC /* Scanimate.app */,
+				A44D61F111A13B7479CBDD62 /* ScanmateTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		18E0C5218DED860CD8E3F227 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				F5A031759D74B72C6C0104D3 /* CreateScanJobResponse.xml */,
+				8B3D9F023C5BA0696526F6F0 /* GetScannerElementsResponse.xml */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
+		2BEE40C96786EF65D01D29FA /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				883514F4A8BD64AB7A02F869 /* ScanError.swift */,
+				CE9A4F228C0A65AA04844617 /* ScanJob.swift */,
+				F3B86F3C3AB3265026FF797E /* ScanTicket.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		3C1AB08EBA2F2C2676342264 /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				A00143B209D5585F36B1D8AB /* WSDScanner.swift */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		76E248388E5D6BDA7F23A5E0 /* Scanimate */ = {
+			isa = PBXGroup;
+			children = (
+				059CA5BA5FEEFC9C28B36201 /* Info.plist */,
+				E2F5979391E9ECD589FBC55C /* Scanimate.entitlements */,
+				F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */,
+				2BEE40C96786EF65D01D29FA /* Domain */,
+				3C1AB08EBA2F2C2676342264 /* Network */,
+				021D0CC35E5552B54CDA8B3F /* ViewModel */,
+				B2C32615379FCCA71BA0265E /* Views */,
+			);
+			path = Scanimate;
+			sourceTree = "<group>";
+		};
+		B2C32615379FCCA71BA0265E /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				17EEE03EA1E5D8BF241516F0 /* ContentView.swift */,
+				FCAA20241FE27843780B15C2 /* ScanPanelView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		C93088CBBDBE4A7BA7E8803B /* ScanmateTests */ = {
+			isa = PBXGroup;
+			children = (
+				49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */,
+				1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */,
+				4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */,
+				18E0C5218DED860CD8E3F227 /* Fixtures */,
+			);
+			path = ScanmateTests;
+			sourceTree = "<group>";
+		};
+		DF0C3DD633E7DD590121CB78 = {
+			isa = PBXGroup;
+			children = (
+				76E248388E5D6BDA7F23A5E0 /* Scanimate */,
+				C93088CBBDBE4A7BA7E8803B /* ScanmateTests */,
+				0A443823F94DF7D2617F8E56 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2BEC558B262C8C135B7AA0D0 /* ScanmateTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CCAC30B1A87BE6613E42CC61 /* Build configuration list for PBXNativeTarget "ScanmateTests" */;
+			buildPhases = (
+				BF9DFDB5A55A659A2C3CB7E6 /* Sources */,
+				DA77619C1AF196E2D5082399 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7EC4FE7C29CC599A6CA5973C /* PBXTargetDependency */,
+			);
+			name = ScanmateTests;
+			packageProductDependencies = (
+			);
+			productName = ScanmateTests;
+			productReference = A44D61F111A13B7479CBDD62 /* ScanmateTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D910BBC06251358DBBE7D82F /* Scanimate */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 33EBA9DCF831567B22F27E88 /* Build configuration list for PBXNativeTarget "Scanimate" */;
+			buildPhases = (
+				923D70EC5A4998F31EF4B136 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Scanimate;
+			packageProductDependencies = (
+			);
+			productName = Scanimate;
+			productReference = 433DF89293AF1D828103C2BC /* Scanimate.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7A409510F381B3E0924FCB8F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					D910BBC06251358DBBE7D82F = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 5C8B889607238CA3B83DE334 /* Build configuration list for PBXProject "Scanimate" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = DF0C3DD633E7DD590121CB78;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0A443823F94DF7D2617F8E56 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D910BBC06251358DBBE7D82F /* Scanimate */,
+				2BEC558B262C8C135B7AA0D0 /* ScanmateTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DA77619C1AF196E2D5082399 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2543F12416C90DE78931E47 /* CreateScanJobResponse.xml in Resources */,
+				587A0E1420C740115E489C13 /* GetScannerElementsResponse.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		923D70EC5A4998F31EF4B136 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4446ABA398A380CF1C69CF8 /* ContentView.swift in Sources */,
+				A64FC17AB4BCD0D0A2CA3014 /* ScanError.swift in Sources */,
+				E8AE98A0224EA40A840E191C /* ScanJob.swift in Sources */,
+				6FED2A999D2CF9F518F4EF5F /* ScanPanelView.swift in Sources */,
+				FA4ABA0BE2F87F22694884CF /* ScanTicket.swift in Sources */,
+				4D0C15029EE54A08351967CC /* ScanViewModel.swift in Sources */,
+				2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */,
+				AED404C026FEBF04571C4F96 /* WSDScanner.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BF9DFDB5A55A659A2C3CB7E6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */,
+				6CA91DC3B8D8FF39BC59237F /* URLProtocolStub.swift in Sources */,
+				2C8BF71C483F4CFE1A73C8E9 /* WSDScannerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7EC4FE7C29CC599A6CA5973C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D910BBC06251358DBBE7D82F /* Scanimate */;
+			targetProxy = 0E78707DFD32DFCD1F6CCE0A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		73AA7CE790B07E0CEB996B5C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jerinjoy.scanimate.tests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Scanimate.app/Contents/MacOS/Scanimate";
+			};
+			name = Debug;
+		};
+		8B2F3A75369AAB7B50B65AAF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Scanimate/Scanimate.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_TESTABILITY = YES;
+				INFOPLIST_FILE = Scanimate/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jerinjoy.scanimate;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		8BAAB2CAF5EE087C5C626CB9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jerinjoy.scanimate.tests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Scanimate.app/Contents/MacOS/Scanimate";
+			};
+			name = Release;
+		};
+		B946746D433DFA4AB5CBDF33 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CFACDADAD4DB519D82B40AC3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Scanimate/Scanimate.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_TESTABILITY = YES;
+				INFOPLIST_FILE = Scanimate/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jerinjoy.scanimate;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		E5C860A04BDA2355E1E7B942 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		33EBA9DCF831567B22F27E88 /* Build configuration list for PBXNativeTarget "Scanimate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFACDADAD4DB519D82B40AC3 /* Debug */,
+				8B2F3A75369AAB7B50B65AAF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5C8B889607238CA3B83DE334 /* Build configuration list for PBXProject "Scanimate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B946746D433DFA4AB5CBDF33 /* Debug */,
+				E5C860A04BDA2355E1E7B942 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CCAC30B1A87BE6613E42CC61 /* Build configuration list for PBXNativeTarget "ScanmateTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				73AA7CE790B07E0CEB996B5C /* Debug */,
+				8BAAB2CAF5EE087C5C626CB9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7A409510F381B3E0924FCB8F /* Project object */;
+}

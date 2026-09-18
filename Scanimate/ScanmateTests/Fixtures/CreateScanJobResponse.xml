@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+            xmlns:sca="http://schemas.microsoft.com/windows/2006/08/wdp/scan">
+  <s:Header>
+    <wsa:Action>http://schemas.microsoft.com/windows/2006/08/wdp/scan/CreateScanJobResponse</wsa:Action>
+  </s:Header>
+  <s:Body>
+    <sca:CreateScanJobResponse>
+      <sca:JobId>1</sca:JobId>
+      <sca:JobToken>TOKEN123</sca:JobToken>
+      <sca:ImageInformation>
+        <sca:MediaFrontImageInfo>
+          <sca:PixelsPerLine>2480</sca:PixelsPerLine>
+          <sca:NumberOfLines>3508</sca:NumberOfLines>
+          <sca:BytesPerLine>2480</sca:BytesPerLine>
+        </sca:MediaFrontImageInfo>
+      </sca:ImageInformation>
+      <sca:DocumentFinalParameters>
+        <sca:Format>jfif</sca:Format>
+        <sca:ImagesToTransfer>1</sca:ImagesToTransfer>
+        <sca:InputSource>Platen</sca:InputSource>
+      </sca:DocumentFinalParameters>
+    </sca:CreateScanJobResponse>
+  </s:Body>
+</s:Envelope>
