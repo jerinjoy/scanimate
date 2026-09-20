@@ -412,6 +412,33 @@ final class ScanViewModelTests: XCTestCase {
         XCTAssertEqual(vm.discoveredTargets.count, 1)
     }
 
+    // MARK: - Persistence tests
+
+    func testSavedTargetRoundTripsThroughPersistence() async throws {
+        let testHost = "192.168.99.99"
+
+        UserDefaults.standard.removeObject(forKey: "savedTargets")
+        UserDefaults.standard.removeObject(forKey: "lastUsedHost")
+        UserDefaults.standard.removeObject(forKey: "ipAddress")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "savedTargets")
+            UserDefaults.standard.removeObject(forKey: "lastUsedHost")
+        }
+
+        // Scan with a manual host — resolveHost() should save it to UserDefaults.
+        let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
+        let vm = makeVM(mock: mock)
+        vm.manualHost = testHost
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.isScanComplete }
+        XCTAssertTrue(vm.savedTargets.contains { $0.host == testHost }, "Manual host should be in savedTargets after scan")
+
+        // A fresh VM should restore the saved target from UserDefaults.
+        let vm2 = makeVM(mock: MockScanner(states: [], result: .success([])))
+        XCTAssertTrue(vm2.savedTargets.contains { $0.host == testHost }, "Saved targets should persist across VM instances")
+        XCTAssertEqual(vm2.selectedTarget?.host, testHost, "Last-used target should be restored as selectedTarget")
+    }
+
     // MARK: - Helpers
 
     private func waitForCondition(timeout: TimeInterval, condition: @MainActor () -> Bool) async throws {
