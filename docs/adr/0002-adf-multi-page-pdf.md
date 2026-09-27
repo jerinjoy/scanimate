@@ -5,3 +5,5 @@ When the input source is ADF, the ScanJob retrieves pages until the feeder is em
 PDF is the natural format for multi-page document workflows on macOS, and it is what users expect when scanning a stack of papers. Multi-page TIFF is technically equivalent but uncommon in practice and poorly supported by consumer apps.
 
 Flatbed scans default to PNG (single page, lossless) since they are more commonly photos or individual documents where a multi-page container adds no value.
+
+**Extended by [ADR-0004](./0004-destination-replaces-nssavepanel.md)**: a Platen scan can still end up in a multi-page PDF, one page at a time, via the append flag on the Destination — this default is about the initial file type, not a hard limit on Platen output.

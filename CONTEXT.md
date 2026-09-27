@@ -34,3 +34,23 @@ _Avoid_: Paper feeder, document feeder
 
 **MTOM**:
 The multipart MIME encoding used in the Scanner's RetrieveImage response. The SOAP envelope is in part 0; the raw JPEG payload is in part 1.
+
+**ScannerTarget**:
+A Scanner the user can select in the device picker, identified by a `host` and an optional `displayName`. Either found via Discovery in the current session, or saved for reuse across sessions.
+_Avoid_: device, connection
+
+**Discovery**:
+The WS-Discovery multicast probe (UDP 3702) that finds WSD-capable Scanners on the local network by their advertised ScanService type. Session-only — results aren't kept unless the user saves one as a ScannerTarget. Finds Scanners only; it is not a general network device browser.
+_Avoid_: network scan, device scan, LAN browser
+
+**Overview**:
+A fast, low-resolution ScanJob across the full Platen, used to preview the bed and let the user select a ScanRegion before running the real scan.
+_Avoid_: preview scan, quick scan
+
+**ScanRegion**:
+A rectangular subset of the Platen, selected from the Overview preview, that constrains where a subsequent ScanJob reads from. Persists across repeated Overview runs within a session; the user resets it by dragging a new selection, not automatically.
+_Avoid_: crop, selection, scan area
+
+**Destination**:
+The filename, file type, folder, and append flag describing where a ScanJob's ScanResult is written. Set inline before scanning; applied automatically the moment the ScanJob completes. When the file type is PDF and append is checked, the ScanResult's pages are added to the end of the existing file at that path instead of creating a new one.
+_Avoid_: save location, output path, export settings
