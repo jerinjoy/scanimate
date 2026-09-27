@@ -42,6 +42,7 @@ final class ScanViewModel: ObservableObject {
     private(set) var scanTask: Task<Void, Never>?
     private(set) var overviewTask: Task<Void, Never>?
     private var discoveryTask: Task<Void, Never>?
+    private var activeDiscovery: (any ScannerDiscoveryProtocol)?
 
     private var scannerFactory: @Sendable (String) -> any WSDScannerProtocol
     private var discoveryFactory: @Sendable () -> any ScannerDiscoveryProtocol
@@ -209,6 +210,7 @@ final class ScanViewModel: ObservableObject {
         discoveryTask = Task { @MainActor [weak self] in
             guard let self else { return }
             let discovery = factory()
+            self.activeDiscovery = discovery
             while !Task.isCancelled {
                 self.isDiscovering = true
                 await discovery.start { @Sendable [weak self] target in
@@ -228,10 +230,24 @@ final class ScanViewModel: ObservableObject {
         discoveryTask?.cancel()
         discoveryTask = nil
         isDiscovering = false
+        if let discovery = activeDiscovery {
+            activeDiscovery = nil
+            Task { await discovery.stop() }
+        }
     }
 
     private func handleDiscoveredTarget(_ target: ScannerTarget) {
-        guard !discoveredTargets.contains(where: { $0.host == target.host }) else { return }
+        if let index = discoveredTargets.firstIndex(where: { $0.host == target.host }) {
+            // A later delivery for the same host (e.g. a resolved hostname arriving
+            // after the initial probe result) updates the display name in place.
+            if let displayName = target.displayName, discoveredTargets[index].displayName == nil {
+                discoveredTargets[index].displayName = displayName
+                if selectedTarget?.host == target.host {
+                    selectedTarget?.displayName = displayName
+                }
+            }
+            return
+        }
         discoveredTargets.append(target)
     }
 

@@ -127,7 +127,7 @@ struct ScanPanelView: View {
             if !viewModel.savedTargets.isEmpty {
                 Section("Saved") {
                     ForEach(viewModel.savedTargets) { target in
-                        Text(target.host).tag(target.host)
+                        Text(target.displayName ?? target.host).tag(target.host)
                     }
                 }
             }

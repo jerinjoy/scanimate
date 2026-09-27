@@ -18,6 +18,46 @@ protocol WSDDiscoveryTransport: Sendable {
     func sendAndReceive(probe: Data, timeout: TimeInterval) async throws -> [Data]
 }
 
+// MARK: - Hostname resolver abstraction (injectable for tests)
+
+protocol HostnameResolver: Sendable {
+    /// Attempts a best-effort reverse-DNS lookup for `host`. Returns nil on
+    /// failure, timeout, or when `host` isn't a resolvable IP address.
+    func resolveHostname(for host: String) async -> String?
+}
+
+// MARK: - Real reverse-DNS resolver using POSIX getnameinfo
+
+actor DNSHostnameResolver: HostnameResolver {
+    func resolveHostname(for host: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                continuation.resume(returning: Self.reverseLookup(host: host))
+            }
+        }
+    }
+
+    // Reverse-resolves an IPv4 address to a hostname. Returns nil on any failure,
+    // including when `host` isn't an IP address at all (e.g. already a hostname).
+    nonisolated private static func reverseLookup(host: String) -> String? {
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        guard inet_pton(AF_INET, host, &addr.sin_addr) == 1 else { return nil }
+
+        var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        let result = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                getnameinfo(sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size),
+                            &hostBuffer, socklen_t(hostBuffer.count), nil, 0, NI_NAMEREQD)
+            }
+        }
+        guard result == 0 else { return nil }
+        let name = String(cString: hostBuffer)
+        return name.isEmpty ? nil : name
+    }
+}
+
 // MARK: - Real UDP transport using POSIX sockets
 
 actor UDPDiscoveryTransport: WSDDiscoveryTransport {
@@ -104,9 +144,15 @@ actor WSScannerDiscovery: ScannerDiscoveryProtocol {
     static let discoveryTo  = "urn:schemas-xmlsoap-org:ws:2005:04:discovery"
 
     private let transport: any WSDDiscoveryTransport
+    private let hostnameResolver: any HostnameResolver
+    private var resolutionTasks: [Task<Void, Never>] = []
 
-    init(transport: any WSDDiscoveryTransport = UDPDiscoveryTransport()) {
+    init(
+        transport: any WSDDiscoveryTransport = UDPDiscoveryTransport(),
+        hostnameResolver: any HostnameResolver = DNSHostnameResolver()
+    ) {
         self.transport = transport
+        self.hostnameResolver = hostnameResolver
     }
 
     // MARK: - ScannerDiscoveryProtocol
@@ -120,13 +166,40 @@ actor WSScannerDiscovery: ScannerDiscoveryProtocol {
             guard !Task.isCancelled else { break }
             if let target = parseProbeMatch(datagram) {
                 onFound(target)
+                if target.displayName == nil {
+                    resolveDisplayName(for: target, onFound: onFound)
+                }
             }
         }
     }
 
+    // Best-effort, asynchronous reverse-DNS resolution for a target with no
+    // advertised FriendlyName. Runs independently of the probe loop so a
+    // slow or failing resolver never blocks or delays delivery of targets.
+    // The spawned task is unstructured (it must outlive `start()`'s return),
+    // so it's tracked here and explicitly cancelled by `stop()`.
+    private func resolveDisplayName(
+        for target: ScannerTarget,
+        onFound: @escaping @Sendable (ScannerTarget) -> Void
+    ) {
+        let resolver = hostnameResolver
+        let host = target.host
+        let task = Task {
+            guard let resolvedName = await resolver.resolveHostname(for: host),
+                  !resolvedName.isEmpty,
+                  !Task.isCancelled else { return }
+            onFound(ScannerTarget(host: host, displayName: resolvedName, source: .discovered))
+        }
+        resolutionTasks.append(task)
+    }
+
     func stop() async {
-        // Cancellation propagates from the calling Task via structured concurrency;
-        // no internal state to clean up here.
+        // Cancel any in-flight reverse-DNS lookups so a resolved name can't
+        // arrive via `onFound` after the caller has stopped discovery.
+        for task in resolutionTasks {
+            task.cancel()
+        }
+        resolutionTasks.removeAll()
     }
 
     // MARK: - Probe XML builder

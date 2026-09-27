@@ -18,6 +18,25 @@ struct MockDiscoveryTransport: WSDDiscoveryTransport {
     }
 }
 
+// MARK: - Mock hostname resolver
+
+struct MockHostnameResolver: HostnameResolver {
+    let result: String?
+    let delayNanoseconds: UInt64
+
+    init(result: String? = nil, delayNanoseconds: UInt64 = 0) {
+        self.result = result
+        self.delayNanoseconds = delayNanoseconds
+    }
+
+    func resolveHostname(for host: String) async -> String? {
+        if delayNanoseconds > 0 {
+            try? await Task.sleep(nanoseconds: delayNanoseconds)
+        }
+        return result
+    }
+}
+
 // MARK: - ProbeMatches XML fixtures
 
 enum DiscoveryFixtures {
@@ -220,6 +239,84 @@ final class WSScannerDiscoveryTests: XCTestCase {
         await discovery.start { _ in }
         didComplete = true
         XCTAssertTrue(didComplete, "start() should return only after the probe completes")
+    }
+
+    // MARK: - hostname resolver
+
+    func testResolverConsultedWhenFriendlyNameAbsent() async throws {
+        let response = DiscoveryFixtures.probeMatchesResponse(host: "192.168.1.66")
+        let transport = MockDiscoveryTransport(responses: [response])
+        let resolver = MockHostnameResolver(result: "resolved-name.local")
+        let discovery = WSScannerDiscovery(transport: transport, hostnameResolver: resolver)
+
+        let collector = TargetCollector()
+        await discovery.start { target in
+            Task { await collector.add(target) }
+        }
+        try await waitFor(timeout: 1) {
+            await collector.targets.contains { $0.displayName == "resolved-name.local" }
+        }
+
+        let targets = await collector.targets
+        XCTAssertTrue(targets.contains { $0.host == "192.168.1.66" && $0.displayName == "resolved-name.local" })
+    }
+
+    func testResolverNotConsultedWhenFriendlyNamePresent() async throws {
+        let response = DiscoveryFixtures.probeMatchesResponse(host: "192.168.1.66", friendlyName: "Samsung M2070")
+        let transport = MockDiscoveryTransport(responses: [response])
+        // If the resolver were consulted, this distinct name would leak into displayName.
+        let resolver = MockHostnameResolver(result: "should-not-be-used.local")
+        let discovery = WSScannerDiscovery(transport: transport, hostnameResolver: resolver)
+
+        let collector = TargetCollector()
+        await discovery.start { target in
+            Task { await collector.add(target) }
+        }
+        // Give any (incorrectly) spawned resolution task a chance to run.
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        let targets = await collector.targets
+        XCTAssertEqual(targets.count, 1)
+        XCTAssertEqual(targets.first?.displayName, "Samsung M2070")
+    }
+
+    func testResolverFailureLeavesDisplayNameNil() async throws {
+        let response = DiscoveryFixtures.probeMatchesResponse(host: "192.168.1.66")
+        let transport = MockDiscoveryTransport(responses: [response])
+        let resolver = MockHostnameResolver(result: nil)
+        let discovery = WSScannerDiscovery(transport: transport, hostnameResolver: resolver)
+
+        let collector = TargetCollector()
+        await discovery.start { target in
+            Task { await collector.add(target) }
+        }
+        try await waitFor(timeout: 1) { await collector.count >= 1 }
+        // Give the failing resolution task a chance to (not) deliver anything further.
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        let targets = await collector.targets
+        XCTAssertEqual(targets.count, 1)
+        XCTAssertNil(targets.first?.displayName)
+    }
+
+    func testSlowResolverDoesNotDelayTargetDelivery() async throws {
+        let response = DiscoveryFixtures.probeMatchesResponse(host: "192.168.1.66")
+        let transport = MockDiscoveryTransport(responses: [response])
+        let resolver = MockHostnameResolver(result: "resolved-name.local", delayNanoseconds: 2_000_000_000)
+        let discovery = WSScannerDiscovery(transport: transport, hostnameResolver: resolver)
+
+        let collector = TargetCollector()
+        let start = Date()
+        await discovery.start { target in
+            Task { await collector.add(target) }
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 1.0, "start() must not block on the hostname resolver")
+
+        try await waitFor(timeout: 1) { await collector.count >= 1 }
+        let targets = await collector.targets
+        XCTAssertEqual(targets.first?.host, "192.168.1.66")
+        XCTAssertNil(targets.first?.displayName, "resolver hasn't completed yet")
     }
 
     func testCancellationViaTaskCancelInterruptsStart() async throws {
