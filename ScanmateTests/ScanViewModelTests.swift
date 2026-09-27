@@ -439,6 +439,104 @@ final class ScanViewModelTests: XCTestCase {
         XCTAssertEqual(vm2.selectedTarget?.host, testHost, "Last-used target should be restored as selectedTarget")
     }
 
+    func testRemovedTargetDoesNotResurrectFromLegacyIPAddressKeyOnRelaunch() throws {
+        let testHost = "192.168.99.99"
+
+        UserDefaults.standard.removeObject(forKey: "savedTargets")
+        UserDefaults.standard.removeObject(forKey: "lastUsedHost")
+        UserDefaults.standard.set(testHost, forKey: "ipAddress")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "savedTargets")
+            UserDefaults.standard.removeObject(forKey: "lastUsedHost")
+            UserDefaults.standard.removeObject(forKey: "ipAddress")
+        }
+
+        // First launch migrates the legacy ipAddress key into savedTargets.
+        let vm = makeVM(mock: MockScanner(states: [], result: .success([])))
+        XCTAssertTrue(vm.savedTargets.contains { $0.host == testHost })
+
+        vm.removeSavedTarget(ScannerTarget(host: testHost, displayName: nil, source: .manual))
+        XCTAssertFalse(vm.savedTargets.contains { $0.host == testHost })
+
+        // A relaunch must not re-migrate the now-deleted host back in.
+        let vm2 = makeVM(mock: MockScanner(states: [], result: .success([])))
+        XCTAssertFalse(vm2.savedTargets.contains { $0.host == testHost }, "Deleted target should not reappear via legacy ipAddress migration")
+    }
+
+    // MARK: - Manage Devices (removeSavedTarget) tests
+
+    private func makeVMWithSavedTargets(_ targets: [ScannerTarget]) -> ScanViewModel {
+        UserDefaults.standard.removeObject(forKey: "savedTargets")
+        UserDefaults.standard.removeObject(forKey: "lastUsedHost")
+        UserDefaults.standard.removeObject(forKey: "ipAddress")
+        let data = try! JSONEncoder().encode(targets)
+        UserDefaults.standard.set(data, forKey: "savedTargets")
+        return ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery() }
+        )
+    }
+
+    private func clearSavedTargetsDefaults() {
+        UserDefaults.standard.removeObject(forKey: "savedTargets")
+        UserDefaults.standard.removeObject(forKey: "lastUsedHost")
+    }
+
+    func testRemoveSavedTargetRemovesFromListAndPersists() throws {
+        let a = ScannerTarget(host: "10.0.0.1", displayName: "A", source: .manual)
+        let b = ScannerTarget(host: "10.0.0.2", displayName: "B", source: .manual)
+        let vm = makeVMWithSavedTargets([a, b])
+        defer { clearSavedTargetsDefaults() }
+
+        vm.removeSavedTarget(a)
+
+        XCTAssertEqual(vm.savedTargets.map(\.host), ["10.0.0.2"])
+
+        // Persistence: a freshly loaded VM should not see the removed target.
+        let vm2 = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery() }
+        )
+        XCTAssertEqual(vm2.savedTargets.map(\.host), ["10.0.0.2"])
+    }
+
+    func testRemoveSavedTargetFallsBackToFirstRemainingWhenSelectedTargetRemoved() throws {
+        let a = ScannerTarget(host: "10.0.0.1", displayName: "A", source: .manual)
+        let b = ScannerTarget(host: "10.0.0.2", displayName: "B", source: .manual)
+        let vm = makeVMWithSavedTargets([a, b])
+        defer { clearSavedTargetsDefaults() }
+        vm.selectedTarget = a
+
+        vm.removeSavedTarget(a)
+
+        XCTAssertEqual(vm.selectedTarget?.host, "10.0.0.2")
+    }
+
+    func testRemoveSavedTargetClearsSelectionWhenNoneRemain() throws {
+        let a = ScannerTarget(host: "10.0.0.1", displayName: "A", source: .manual)
+        let vm = makeVMWithSavedTargets([a])
+        defer { clearSavedTargetsDefaults() }
+        vm.selectedTarget = a
+
+        vm.removeSavedTarget(a)
+
+        XCTAssertTrue(vm.savedTargets.isEmpty)
+        XCTAssertNil(vm.selectedTarget)
+    }
+
+    func testRemoveSavedTargetLeavesSelectionUnchangedWhenRemovingAnotherTarget() throws {
+        let a = ScannerTarget(host: "10.0.0.1", displayName: "A", source: .manual)
+        let b = ScannerTarget(host: "10.0.0.2", displayName: "B", source: .manual)
+        let vm = makeVMWithSavedTargets([a, b])
+        defer { clearSavedTargetsDefaults() }
+        vm.selectedTarget = a
+
+        vm.removeSavedTarget(b)
+
+        XCTAssertEqual(vm.selectedTarget?.host, "10.0.0.1")
+        XCTAssertEqual(vm.savedTargets.map(\.host), ["10.0.0.1"])
+    }
+
     // MARK: - Helpers
 
     private func waitForCondition(timeout: TimeInterval, condition: @MainActor () -> Bool) async throws {

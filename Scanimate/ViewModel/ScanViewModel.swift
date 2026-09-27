@@ -189,6 +189,18 @@ final class ScanViewModel: ObservableObject {
         selectedTarget = (discoveredTargets + savedTargets).first { $0.host == host }
     }
 
+    /// Removes a saved target immediately, with no confirmation. If it was the
+    /// selected target, falls back to the first remaining saved target, or
+    /// clears to manual entry if none remain.
+    func removeSavedTarget(_ target: ScannerTarget) {
+        savedTargets.removeAll { $0.host == target.host }
+        persistSavedTargets()
+
+        if selectedTarget?.host == target.host {
+            selectedTarget = savedTargets.first
+        }
+    }
+
     // MARK: - Discovery
 
     func startDiscovery() {
@@ -232,12 +244,15 @@ final class ScanViewModel: ObservableObject {
             savedTargets = decoded
         }
 
-        // Migrate legacy ipAddress key.
+        // Migrate legacy ipAddress key, once.
         let legacy = UserDefaults.standard.string(forKey: "ipAddress") ?? ""
-        if !legacy.isEmpty && !savedTargets.contains(where: { $0.host == legacy }) {
-            let migrated = ScannerTarget(host: legacy, displayName: nil, source: .manual)
-            savedTargets.append(migrated)
-            persistSavedTargets()
+        if !legacy.isEmpty {
+            if !savedTargets.contains(where: { $0.host == legacy }) {
+                let migrated = ScannerTarget(host: legacy, displayName: nil, source: .manual)
+                savedTargets.append(migrated)
+                persistSavedTargets()
+            }
+            UserDefaults.standard.removeObject(forKey: "ipAddress")
         }
 
         // Restore last-used host.

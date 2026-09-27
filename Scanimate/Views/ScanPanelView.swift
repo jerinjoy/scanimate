@@ -5,6 +5,8 @@ struct ScanPanelView: View {
 
     private static let otherHostSentinel = "_other_"
 
+    @State private var isManagingDevices = false
+
     @AppStorage("resolution") private var resolution: String = Resolution.dpi300.rawValue
     @AppStorage("colorMode") private var colorMode: String = ColorMode.grayscale.rawValue
     @AppStorage("paperSize") private var paperSize: String = PaperSize.letter.rawValue
@@ -34,6 +36,9 @@ struct ScanPanelView: View {
             syncSettings()
             viewModel.startDiscovery()
         }
+        .sheet(isPresented: $isManagingDevices) {
+            ManageDevicesSheet(viewModel: viewModel)
+        }
     }
 
     // MARK: - Left panel
@@ -53,6 +58,8 @@ struct ScanPanelView: View {
                 if viewModel.selectedTarget == nil {
                     manualHostRow
                 }
+                Button("Manage Devices…") { isManagingDevices = true }
+                    .disabled(viewModel.savedTargets.isEmpty)
             } header: {
                 HStack(spacing: 6) {
                     Text("Scanner")
