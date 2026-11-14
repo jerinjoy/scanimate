@@ -87,9 +87,11 @@ actor WSDScanner: WSDScannerProtocol {
         _ = try await getScannerElements()
         try Task.checkCancellation()
 
+        // The Overview is always in color, whatever color mode the real
+        // ScanJob's ScanTicket will ask for.
         let ticket = ScanTicket(
             resolution: .dpi75,
-            colorMode: .grayscale,
+            colorMode: .color,
             paperSize: .letter,
             source: .flatbed
         )

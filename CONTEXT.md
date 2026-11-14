@@ -44,7 +44,7 @@ The WS-Discovery multicast probe (UDP 3702) that finds WSD-capable Scanners on t
 _Avoid_: network scan, device scan, LAN browser
 
 **Overview**:
-A fast, low-resolution ScanJob across the full Platen, used to preview the bed so the user can draw a ScanRegion on it before running the real scan.
+A fast, low-resolution ScanJob across the full Platen, used to preview the bed so the user can draw a ScanRegion on it before running the real scan. Its ScanTicket is fixed — 75 DPI, color, Letter, Platen — and always asks for color, whatever color mode the real scan's ScanTicket uses.
 _Avoid_: preview scan, quick scan
 
 **ScanRegion**:

@@ -231,6 +231,77 @@ final class WSDScannerTests: XCTestCase {
         XCTAssertEqual(requestCount, 3, "Overview should make exactly 3 HTTP requests")
     }
 
+    // MARK: - Overview ScanTicket
+
+    /// Runs `operation` against a stubbed Scanner and returns the CreateScanJob SOAP body it sent.
+    private func captureCreateScanJobBody(
+        _ operation: (WSDScanner) async throws -> Void
+    ) async throws -> String {
+        var capturedCreateJobBody: String?
+        var requestCount = 0
+        URLProtocolStub.requestHandler = { request in
+            requestCount += 1
+            switch requestCount {
+            case 1:
+                return (.ok(), Fixtures.getScannerElementsResponse())
+            case 2:
+                capturedCreateJobBody = request.resolvedBodyData.flatMap { String(data: $0, encoding: .utf8) }
+                return (.ok(), Fixtures.createScanJobResponse())
+            case 3:
+                let (ct, body) = Fixtures.retrieveImageResponse()
+                return (.ok(contentType: ct), body)
+            default:
+                throw URLError(.badServerResponse)
+            }
+        }
+
+        let scanner = WSDScanner(host: "192.168.1.66", session: .stubbed())
+        try await operation(scanner)
+        return try XCTUnwrap(capturedCreateJobBody)
+    }
+
+    func testOverviewScanTicketRequestsColor() async throws {
+        let body = try await captureCreateScanJobBody { scanner in
+            _ = try await scanner.overview()
+        }
+
+        XCTAssertTrue(body.contains("<sca:ColorProcessing>RGB24</sca:ColorProcessing>"))
+        XCTAssertFalse(body.contains("Grayscale8"))
+    }
+
+    func testOverviewScanTicketKeepsResolutionPaperSizeAndSource() async throws {
+        let body = try await captureCreateScanJobBody { scanner in
+            _ = try await scanner.overview()
+        }
+
+        // 75 DPI
+        XCTAssertTrue(body.contains("<sca:Width>75</sca:Width>"))
+        XCTAssertTrue(body.contains("<sca:Height>75</sca:Height>"))
+        // Letter, the full Platen
+        XCTAssertTrue(body.contains("<sca:Width>8500</sca:Width>"))
+        XCTAssertTrue(body.contains("<sca:Height>11000</sca:Height>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionXOffset>0</sca:ScanRegionXOffset>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionYOffset>0</sca:ScanRegionYOffset>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionWidth>8500</sca:ScanRegionWidth>"))
+        XCTAssertTrue(body.contains("<sca:ScanRegionHeight>11000</sca:ScanRegionHeight>"))
+        // Platen
+        XCTAssertTrue(body.contains("<sca:InputSource>Platen</sca:InputSource>"))
+    }
+
+    func testScanSendsItsOwnTicketColorModeNotTheOverviewOne() async throws {
+        for colorMode in ColorMode.allCases {
+            let ticket = ScanTicket(resolution: .dpi300, colorMode: colorMode, paperSize: .letter, source: .flatbed)
+            let body = try await captureCreateScanJobBody { scanner in
+                _ = try await scanner.scan(ticket: ticket) { _ in }
+            }
+
+            XCTAssertTrue(
+                body.contains("<sca:ColorProcessing>\(colorMode.rawValue)</sca:ColorProcessing>"),
+                "A ScanJob with a \(colorMode.displayName) ScanTicket should request \(colorMode.rawValue)"
+            )
+        }
+    }
+
     // MARK: - Scan region embedded in SOAP body
 
     func testScanWithRegionEmbedsRegionInSoapBody() async throws {
