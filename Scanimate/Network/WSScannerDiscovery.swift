@@ -21,8 +21,8 @@ protocol WSDDiscoveryTransport: Sendable {
 // MARK: - Hostname resolver abstraction (injectable for tests)
 
 protocol HostnameResolver: Sendable {
-    /// Attempts a best-effort reverse-DNS lookup for `host`. Returns nil on
-    /// failure, timeout, or when `host` isn't a resolvable IP address.
+    /// Attempts a best-effort reverse lookup of a name for `host`. Returns nil
+    /// on failure, timeout, or when `host` isn't a resolvable IP address.
     func resolveHostname(for host: String) async -> String?
 }
 
@@ -149,7 +149,12 @@ actor WSScannerDiscovery: ScannerDiscoveryProtocol {
 
     init(
         transport: any WSDDiscoveryTransport = UDPDiscoveryTransport(),
-        hostnameResolver: any HostnameResolver = DNSHostnameResolver()
+        // Multicast DNS first (the Scanner answers for its own address), then
+        // unicast reverse DNS for networks whose router does serve PTR records.
+        hostnameResolver: any HostnameResolver = ChainedHostnameResolver([
+            MDNSHostnameResolver(),
+            DNSHostnameResolver(),
+        ])
     ) {
         self.transport = transport
         self.hostnameResolver = hostnameResolver

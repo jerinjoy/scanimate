@@ -117,9 +117,10 @@ struct ScanPanelView: View {
 
     private var scannerPickerRow: some View {
         Picker("Device", selection: pickerHostBinding) {
-            if !viewModel.discoveredTargets.isEmpty {
+            // A host that is already saved is listed once, under Saved.
+            if !viewModel.unsavedDiscoveredTargets.isEmpty {
                 Section("Discovered") {
-                    ForEach(viewModel.discoveredTargets) { target in
+                    ForEach(viewModel.unsavedDiscoveredTargets) { target in
                         Text(target.displayName ?? target.host).tag(target.host)
                     }
                 }

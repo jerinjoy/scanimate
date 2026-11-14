@@ -17,7 +17,16 @@ struct ManageDevicesSheet: View {
             List {
                 ForEach(viewModel.savedTargets) { target in
                     HStack {
-                        Text(target.displayName ?? target.host)
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let displayName = target.displayName, !displayName.isEmpty {
+                                Text(displayName)
+                                Text(target.host)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(target.host)
+                            }
+                        }
                         Spacer()
                         Button {
                             viewModel.removeSavedTarget(target)

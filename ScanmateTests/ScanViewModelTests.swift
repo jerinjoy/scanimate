@@ -482,6 +482,85 @@ final class ScanViewModelTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "lastUsedHost")
     }
 
+    // MARK: - Saved-target displayName backfill
+
+    func testResolvedNameBackfillsSavedTargetAndPersists() async throws {
+        let host = "192.168.1.66"
+        _ = makeVMWithSavedTargets([ScannerTarget(host: host, displayName: nil, source: .manual)])
+        defer { clearSavedTargetsDefaults() }
+
+        // Discovery delivers the ScannerTarget first without a name, then again
+        // once the name has resolved.
+        let deliveries = [
+            ScannerTarget(host: host, displayName: nil, source: .discovered),
+            ScannerTarget(host: host, displayName: "Fullyautomatix", source: .discovered),
+        ]
+        let discovering = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery(targets: deliveries) }
+        )
+        XCTAssertNil(discovering.savedTargets.first?.displayName)
+        discovering.selectTarget(byHost: host)
+
+        discovering.startDiscovery()
+        try await waitForCondition(timeout: 2) {
+            discovering.savedTargets.first?.displayName == "Fullyautomatix"
+        }
+        discovering.stopDiscovery()
+
+        XCTAssertEqual(discovering.savedTargets.map(\.host), [host], "host stays the IP")
+        XCTAssertEqual(discovering.selectedTarget?.displayName, "Fullyautomatix")
+
+        // The name survives relaunch.
+        let relaunched = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery() }
+        )
+        XCTAssertEqual(relaunched.savedTargets.first?.host, host)
+        XCTAssertEqual(relaunched.savedTargets.first?.displayName, "Fullyautomatix")
+    }
+
+    func testResolvedNameDoesNotOverwriteExistingSavedDisplayName() async throws {
+        let host = "192.168.1.66"
+        _ = makeVMWithSavedTargets([ScannerTarget(host: host, displayName: "Office", source: .manual)])
+        defer { clearSavedTargetsDefaults() }
+
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: {
+                MockDiscovery(targets: [ScannerTarget(host: host, displayName: "Fullyautomatix", source: .discovered)])
+            }
+        )
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 2) { vm.discoveredTargets.count >= 1 }
+        vm.stopDiscovery()
+
+        XCTAssertEqual(vm.savedTargets.first?.displayName, "Office")
+    }
+
+    func testHostInBothDiscoveredAndSavedIsListedOnceInPicker() async throws {
+        let saved = ScannerTarget(host: "192.168.1.66", displayName: nil, source: .manual)
+        _ = makeVMWithSavedTargets([saved])
+        defer { clearSavedTargetsDefaults() }
+
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: {
+                MockDiscovery(targets: [
+                    ScannerTarget(host: "192.168.1.66", displayName: nil, source: .discovered),
+                    ScannerTarget(host: "192.168.1.77", displayName: nil, source: .discovered),
+                ])
+            }
+        )
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 2) { vm.discoveredTargets.count >= 2 }
+        vm.stopDiscovery()
+
+        // The picker lists unsavedDiscoveredTargets under Discovered and savedTargets under Saved.
+        XCTAssertEqual(vm.unsavedDiscoveredTargets.map(\.host), ["192.168.1.77"])
+        XCTAssertEqual(vm.savedTargets.map(\.host), ["192.168.1.66"])
+    }
+
     func testRemoveSavedTargetRemovesFromListAndPersists() throws {
         let a = ScannerTarget(host: "10.0.0.1", displayName: "A", source: .manual)
         let b = ScannerTarget(host: "10.0.0.2", displayName: "B", source: .manual)

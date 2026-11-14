@@ -36,11 +36,11 @@ _Avoid_: Paper feeder, document feeder
 The multipart MIME encoding used in the Scanner's RetrieveImage response. The SOAP envelope is in part 0; the raw JPEG payload is in part 1.
 
 **ScannerTarget**:
-A Scanner the user can select in the device picker, identified by a `host` and an optional `displayName`. Either found via Discovery in the current session, or saved for reuse across sessions.
+A Scanner the user can select in the device picker, identified by a `host` and an optional `displayName`. Either found via Discovery in the current session, or saved for reuse across sessions. The `host` is the address the app connects to (an IP for a discovered Scanner) and never changes; the `displayName` is only a label, supplied by Discovery, and the picker falls back to the `host` while it is nil. A saved ScannerTarget with no `displayName` gains one, persistently, the first time Discovery resolves a name for its `host`. A `host` that is both discovered and saved is listed once in the picker, under Saved.
 _Avoid_: device, connection
 
 **Discovery**:
-The WS-Discovery multicast probe (UDP 3702) that finds WSD-capable Scanners on the local network by their advertised ScanService type. Session-only — results aren't kept unless the user saves one as a ScannerTarget. Finds Scanners only; it is not a general network device browser.
+The WS-Discovery multicast probe (UDP 3702) that finds WSD-capable Scanners on the local network by their advertised ScanService type. Session-only — results aren't kept unless the user saves one as a ScannerTarget. Finds Scanners only; it is not a general network device browser. Discovery is also the source of a ScannerTarget's `displayName`: the `FriendlyName` in the probe reply if the Scanner sends one (the SL-M2070 does not), otherwise a best-effort reverse lookup of the Scanner's IP — multicast DNS first, shown without its `.local` suffix (`Fullyautomatix.local.` → `Fullyautomatix`), then ordinary reverse DNS for networks whose router serves PTR records. The lookup runs after the ScannerTarget is delivered and never delays it; if it fails, the IP stays showing.
 _Avoid_: network scan, device scan, LAN browser
 
 **Overview**:

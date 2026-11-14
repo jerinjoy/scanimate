@@ -15,6 +15,13 @@ final class ScanViewModel: ObservableObject {
     @Published private(set) var discoveredTargets: [ScannerTarget] = []
     /// Manually entered targets that have been saved across sessions.
     @Published private(set) var savedTargets: [ScannerTarget] = []
+    /// Discovered targets to list in the device picker: those whose host is not
+    /// already a saved target, so a host in both lists appears once (under Saved).
+    var unsavedDiscoveredTargets: [ScannerTarget] {
+        discoveredTargets.filter { discovered in
+            !savedTargets.contains { $0.host == discovered.host }
+        }
+    }
     /// True while the background WS-Discovery probe is running.
     @Published private(set) var isDiscovering: Bool = false
 
@@ -187,7 +194,8 @@ final class ScanViewModel: ObservableObject {
             selectedTarget = nil
             return
         }
-        selectedTarget = (discoveredTargets + savedTargets).first { $0.host == host }
+        // Saved first: a host in both lists is shown only under Saved in the picker.
+        selectedTarget = (savedTargets + discoveredTargets).first { $0.host == host }
     }
 
     /// Removes a saved target immediately, with no confirmation. If it was the
@@ -242,13 +250,23 @@ final class ScanViewModel: ObservableObject {
             // after the initial probe result) updates the display name in place.
             if let displayName = target.displayName, discoveredTargets[index].displayName == nil {
                 discoveredTargets[index].displayName = displayName
-                if selectedTarget?.host == target.host {
-                    selectedTarget?.displayName = displayName
-                }
             }
-            return
+        } else {
+            discoveredTargets.append(target)
         }
-        discoveredTargets.append(target)
+
+        guard let displayName = target.displayName else { return }
+
+        // Backfill a saved target that was saved before its name resolved, so
+        // it stops showing the bare IP — now and after relaunch.
+        if let savedIndex = savedTargets.firstIndex(where: { $0.host == target.host }),
+           savedTargets[savedIndex].displayName == nil {
+            savedTargets[savedIndex].displayName = displayName
+            persistSavedTargets()
+        }
+        if selectedTarget?.host == target.host, selectedTarget?.displayName == nil {
+            selectedTarget?.displayName = displayName
+        }
     }
 
     // MARK: - Persistence
