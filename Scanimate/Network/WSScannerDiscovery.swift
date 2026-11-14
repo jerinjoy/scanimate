@@ -207,6 +207,9 @@ actor WSScannerDiscovery: ScannerDiscoveryProtocol {
     nonisolated private func buildProbe() -> Data? {
         let msgId    = "urn:uuid:\(UUID().uuidString.lowercased())"
         let clientId = "urn:uuid:\(UUID().uuidString.lowercased())"
+        // No wsa:ReplyTo: the SL-M2070 silently drops a Probe whose ReplyTo is
+        // anything other than the anonymous role. Omitting it means "reply to
+        // the datagram's source", which is what we want.
         let xml = """
         <?xml version='1.0' encoding='UTF-8'?>
         <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
@@ -217,7 +220,6 @@ actor WSScannerDiscovery: ScannerDiscoveryProtocol {
             <wsa:MessageID>\(msgId)</wsa:MessageID>
             <wsa:From><wsa:Address>\(clientId)</wsa:Address></wsa:From>
             <wsa:To>\(WSScannerDiscovery.discoveryTo)</wsa:To>
-            <wsa:ReplyTo><wsa:Address>\(clientId)</wsa:Address></wsa:ReplyTo>
           </soap:Header>
           <soap:Body>
             <wsd:Probe/>
@@ -253,6 +255,20 @@ actor WSScannerDiscovery: ScannerDiscoveryProtocol {
                 .flatMap { $0.isEmpty ? nil : $0 }
 
             return ScannerTarget(host: host, displayName: friendlyName, source: .discovered)
+        }
+
+        // A plain WS-Discovery ProbeMatch (what the SL-M2070 actually sends) has
+        // no Hosted section: the device advertises `wscn:ScanDeviceType` in
+        // wsd:Types and its transport addresses in wsd:XAddrs.
+        for match in allElements where match.localName == "ProbeMatch" {
+            let children = (match.children ?? []).compactMap { $0 as? XMLElement }
+            guard let types = children.first(where: { $0.localName == "Types" })?.stringValue,
+                  types.contains("ScanDeviceType"),
+                  let xAddrs = children.first(where: { $0.localName == "XAddrs" })?.stringValue,
+                  let host = xAddrs.split(whereSeparator: \.isWhitespace)
+                      .lazy.compactMap({ self.hostFromURL(String($0)) }).first
+            else { continue }
+            return ScannerTarget(host: host, displayName: nil, source: .discovered)
         }
         return nil
     }

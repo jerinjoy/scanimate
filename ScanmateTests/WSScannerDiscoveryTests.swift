@@ -139,6 +139,27 @@ final class WSScannerDiscoveryTests: XCTestCase {
         XCTAssertEqual(target?.source, .discovered)
     }
 
+    // Reply captured from a real SL-M2070: no Hosted section, just Types + XAddrs.
+    private func deviceLevelProbeMatch(types: String) -> Data {
+        Data("""
+        <?xml version="1.0" encoding="utf-8" ?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:wsd="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:wsdp="http://schemas.xmlsoap.org/ws/2006/02/devprof" xmlns:wprt="http://schemas.microsoft.com/windows/2006/08/wdp/print" xmlns:wscn="http://schemas.microsoft.com/windows/2006/08/wdp/scan"><soap:Header><wsa:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To><wsa:Action>http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action></soap:Header><soap:Body><wsd:ProbeMatches><wsd:ProbeMatch><wsa:EndpointReference><wsa:Address>urn:uuid:16a65700-007c-1000-bb49-30cda7226a8a</wsa:Address></wsa:EndpointReference><wsd:Types>\(types)</wsd:Types><wsd:Scopes></wsd:Scopes><wsd:XAddrs>http://192.168.1.66:8018/wsd http://169.255.0.1:8018/wsd</wsd:XAddrs><wsd:MetadataVersion>85</wsd:MetadataVersion></wsd:ProbeMatch></wsd:ProbeMatches></soap:Body></soap:Envelope>
+        """.utf8)
+    }
+
+    func testParsesHostFromDeviceLevelProbeMatchWithXAddrs() async throws {
+        let discovery = WSScannerDiscovery(transport: MockDiscoveryTransport())
+        let data = deviceLevelProbeMatch(types: "wsdp:Device wprt:PrintDeviceType wscn:ScanDeviceType")
+        let target = discovery.parseProbeMatch(data)
+        XCTAssertEqual(target?.host, "192.168.1.66")
+        XCTAssertEqual(target?.source, .discovered)
+    }
+
+    func testIgnoresDeviceLevelProbeMatchWithoutScanType() async throws {
+        let discovery = WSScannerDiscovery(transport: MockDiscoveryTransport())
+        let data = deviceLevelProbeMatch(types: "wsdp:Device wprt:PrintDeviceType")
+        XCTAssertNil(discovery.parseProbeMatch(data))
+    }
+
     func testParsesHostnameFromProbeMatch() async throws {
         let discovery = WSScannerDiscovery(transport: MockDiscoveryTransport())
         let data = DiscoveryFixtures.hostnameProbeMatchResponse(hostname: "samsung-m2070.local")
