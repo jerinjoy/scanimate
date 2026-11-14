@@ -1,4 +1,3 @@
-import PDFKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -53,6 +52,7 @@ final class ScanViewModel: ObservableObject {
 
     private var scannerFactory: @Sendable (String) -> any WSDScannerProtocol
     private var discoveryFactory: @Sendable () -> any ScannerDiscoveryProtocol
+    private let destinationWriter: any DestinationWriter
 
     // MARK: - Persistence keys
 
@@ -117,10 +117,12 @@ final class ScanViewModel: ObservableObject {
 
     init(
         scannerFactory: @escaping @Sendable (String) -> any WSDScannerProtocol = { WSDScanner(host: $0) },
-        discoveryFactory: @escaping @Sendable () -> any ScannerDiscoveryProtocol = { WSScannerDiscovery() }
+        discoveryFactory: @escaping @Sendable () -> any ScannerDiscoveryProtocol = { WSScannerDiscovery() },
+        destinationWriter: any DestinationWriter = FileDestinationWriter()
     ) {
         self.scannerFactory = scannerFactory
         self.discoveryFactory = discoveryFactory
+        self.destinationWriter = destinationWriter
         loadPersistedState()
     }
 
@@ -349,80 +351,68 @@ final class ScanViewModel: ObservableObject {
 
     // MARK: - Save
 
+    /// The file type offered first in the save dialog: PDF for an ADF
+    /// ScanJob, PNG for a Platen one.
+    var defaultFileType: FileType {
+        inputSource == .adf ? .pdf : .png
+    }
+
+    /// The file types the save dialog allows. Only an ADF ScanJob offers PDF.
+    var allowedFileTypes: [FileType] {
+        inputSource == .adf ? [.pdf, .png, .tiff] : [.png, .tiff]
+    }
+
+    /// The filename the save dialog starts with.
+    var suggestedFilename: String {
+        "Scan.\(defaultFileType.fileExtension)"
+    }
+
     func save() {
         guard case .complete(let pages) = jobState, !pages.isEmpty else { return }
-        let isADF = inputSource == .adf
-        let dpiValue = Int(resolution.rawValue) ?? 300
 
         let savePanel = NSSavePanel()
         savePanel.canCreateDirectories = true
-        savePanel.nameFieldStringValue = isADF ? "Scan" : "Scan"
-
-        let pdfType = UTType.pdf
-        let pngType = UTType.png
-        let tiffType = UTType.tiff
-
-        if isADF {
-            savePanel.allowedContentTypes = [pdfType, pngType, tiffType]
-            savePanel.nameFieldStringValue = "Scan.pdf"
-        } else {
-            savePanel.allowedContentTypes = [pngType, tiffType]
-            savePanel.nameFieldStringValue = "Scan.png"
-        }
+        savePanel.allowedContentTypes = allowedFileTypes.map(Self.contentType)
+        savePanel.nameFieldStringValue = suggestedFilename
 
         guard savePanel.runModal() == .OK, let url = savePanel.url else { return }
+        writeScanResult(to: url)
+    }
+
+    /// Writes the completed ScanJob's ScanResult to `url` through the
+    /// DestinationWriter, taking the file type from the URL's extension.
+    func writeScanResult(to url: URL) {
+        guard case .complete(let pages) = jobState, !pages.isEmpty else { return }
+        let dpiValue = Int(resolution.rawValue) ?? 300
 
         do {
-            if isADF && url.pathExtension.lowercased() == "pdf" {
-                try savePDF(pages: pages, to: url)
-            } else {
-                guard let first = pages.first else { return }
-                try saveImage(jpeg: first, dpi: dpiValue, to: url)
-            }
+            try destinationWriter.write(
+                pages: pages,
+                dpi: dpiValue,
+                to: url,
+                as: fileType(forSavingTo: url),
+                append: false
+            )
             resetForNextScan()
         } catch {
             alertError = .protocolError("Save failed: \(error.localizedDescription)")
         }
     }
 
-    // MARK: - Export helpers
-
-    private func saveImage(jpeg: Data, dpi: Int, to url: URL) throws {
-        guard let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw ScanError.protocolError("Could not decode JPEG for export")
-        }
-
+    /// PDF only for an ADF ScanJob saved with a `.pdf` extension; otherwise
+    /// TIFF for `.tiff`/`.tif`, and PNG for anything else.
+    private func fileType(forSavingTo url: URL) -> FileType {
         let ext = url.pathExtension.lowercased()
-        let utType: CFString = ext == "tiff" || ext == "tif" ? "public.tiff" as CFString : "public.png" as CFString
-
-        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, utType, 1, nil) else {
-            throw ScanError.protocolError("Could not create image destination")
-        }
-
-        let props: [CFString: Any] = [
-            kCGImagePropertyDPIWidth: dpi,
-            kCGImagePropertyDPIHeight: dpi
-        ]
-        CGImageDestinationAddImage(dest, cgImage, props as CFDictionary)
-        guard CGImageDestinationFinalize(dest) else {
-            throw ScanError.protocolError("Could not write image to disk")
-        }
+        if inputSource == .adf && ext == "pdf" { return .pdf }
+        return ext == "tiff" || ext == "tif" ? .tiff : .png
     }
 
-    private func savePDF(pages: [Data], to url: URL) throws {
-        let pdfDoc = PDFDocument()
-
-        for (index, jpeg) in pages.enumerated() {
-            guard let nsImage = NSImage(data: jpeg),
-                  let page = PDFPage(image: nsImage) else {
-                throw ScanError.protocolError("Could not create PDF page \(index + 1)")
-            }
-            pdfDoc.insert(page, at: pdfDoc.pageCount)
-        }
-
-        guard pdfDoc.write(to: url) else {
-            throw ScanError.protocolError("Could not write PDF to disk")
+    private static func contentType(for fileType: FileType) -> UTType {
+        switch fileType {
+        case .pdf: return .pdf
+        case .png: return .png
+        case .jpeg: return .jpeg
+        case .tiff: return .tiff
         }
     }
 }
