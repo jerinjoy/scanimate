@@ -152,7 +152,8 @@ final class ScanViewModel: ObservableObject {
         guard let host = resolveHost() else { return }
         let scanner = scannerFactory(host)
 
-        selectedRegion = nil
+        // The ScanRegion is deliberately left alone: it persists across Overview
+        // runs for the session and only changes when the user drags a new one.
         isOverviewing = true
         overviewImage = nil
 

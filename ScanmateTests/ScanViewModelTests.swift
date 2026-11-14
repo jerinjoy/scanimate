@@ -255,20 +255,32 @@ final class ScanViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isOverviewing)
     }
 
-    func testStartOverviewResetsSelectedRegion() async throws {
+    func testStartOverviewPreservesSelectedRegion() async throws {
         let mock = MockScanner(
             states: [],
-            result: .success([]),
+            result: .success([Fixtures.minimalJPEG]),
             overviewResult: .success(Fixtures.minimalJPEG)
         )
         let vm = makeVM(mock: mock)
         vm.manualHost = "192.168.1.66"
-        vm.selectedRegion = ScanRegion(xOffset: 100, yOffset: 100, width: 5000, height: 5000)
 
+        // First Overview, then the user drags a ScanRegion on its preview.
         vm.startOverview()
-        try await waitForCondition(timeout: 2) { !vm.isOverviewing }
+        try await waitForCondition(timeout: 2) { !vm.isOverviewing && vm.overviewImage != nil }
+        let region = ScanRegion(xOffset: 100, yOffset: 100, width: 5000, height: 5000)
+        vm.selectedRegion = region
 
-        XCTAssertNil(vm.selectedRegion)
+        // Running Overview again keeps the ScanRegion, both while it runs and after.
+        vm.startOverview()
+        XCTAssertEqual(vm.selectedRegion, region)
+        try await waitForCondition(timeout: 2) { !vm.isOverviewing && vm.overviewImage != nil }
+        XCTAssertEqual(vm.selectedRegion, region)
+
+        // The next ScanJob still reads from that ScanRegion.
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.isScanComplete }
+        let captured = await mock.capturedTicket
+        XCTAssertEqual(captured?.scanRegion, region)
     }
 
     func testStartScanPassesSelectedRegionToTicket() async throws {
