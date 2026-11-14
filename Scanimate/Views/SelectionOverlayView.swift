@@ -1,38 +1,98 @@
 import SwiftUI
 
-// Full scanner bed dimensions in WSD 1/1000-inch units (Letter: 8.5" × 11")
-private let wsdBedWidth = 8500
-private let wsdBedHeight = 11000
+// Platen dimensions in WSD 1/1000-inch units (Letter: 8.5" × 11")
+private let wsdBedWidth = ScanRegion.bedWidth
+private let wsdBedHeight = ScanRegion.bedHeight
 
+/// Lets the user draw, move and resize the ScanRegion on top of the Overview.
+/// There is no default ScanRegion: until the user draws one, only a hint shows.
 struct SelectionOverlayView: View {
     @Binding var region: ScanRegion?
     @State private var dragStartRegion: ScanRegion?
+    /// True while the user is drawing a new ScanRegion. The binding is left
+    /// untouched until the drag ends, so a drag that ends too small simply
+    /// leaves the previous ScanRegion (or nil) in place.
+    @State private var isDrawing = false
+    @State private var drawingRegion: ScanRegion?
 
     static let bedWidth: CGFloat = CGFloat(wsdBedWidth)
     static let bedHeight: CGFloat = CGFloat(wsdBedHeight)
     private let handleSize: CGFloat = 10
-    private let minSelectionWSD = 500
-
-    private var effectiveRegion: ScanRegion {
-        region ?? ScanRegion(xOffset: 0, yOffset: 0, width: wsdBedWidth, height: wsdBedHeight)
-    }
+    private let handleHitSize: CGFloat = 20
+    private let minSelectionWSD = ScanRegion.minimumSide
 
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
-            let current = effectiveRegion
-            let rect = wsdToScreen(current, in: size)
 
             ZStack(alignment: .topLeading) {
-                dimOverlay(selectionRect: rect, containerSize: size)
-                selectionBorder(rect: rect)
-                bodyDrag(rect: rect, containerSize: size)
-                handleViews(rect: rect, containerSize: size)
+                // Bottom layer: the body and handle gestures drawn above it keep priority.
+                drawLayer(containerSize: size)
+                if isDrawing {
+                    if let drawingRegion {
+                        box(for: drawingRegion, containerSize: size)
+                    }
+                } else if let region {
+                    box(for: region, containerSize: size)
+                    bodyDrag(region: region, containerSize: size)
+                    handleViews(region: region, containerSize: size)
+                } else {
+                    hint
+                }
             }
         }
     }
 
     // MARK: - Sub-views
+
+    private func drawLayer(containerSize: CGSize) -> some View {
+        Rectangle()
+            .fill(Color.clear)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        isDrawing = true
+                        // Live box from the press point to the pointer, shown at any size.
+                        drawingRegion = ScanRegion.fromDrag(
+                            start: value.startLocation,
+                            current: value.location,
+                            containerSize: containerSize,
+                            minSize: 1
+                        )
+                    }
+                    .onEnded { value in
+                        if let drawn = ScanRegion.fromDrag(
+                            start: value.startLocation,
+                            current: value.location,
+                            containerSize: containerSize,
+                            minSize: minSelectionWSD
+                        ) {
+                            region = drawn
+                        }
+                        isDrawing = false
+                        drawingRegion = nil
+                    }
+            )
+    }
+
+    private var hint: some View {
+        Text("Drag to select the area to scan")
+            .font(.callout)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.regularMaterial, in: Capsule())
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func box(for shown: ScanRegion, containerSize: CGSize) -> some View {
+        let rect = wsdToScreen(shown, in: containerSize)
+        dimOverlay(selectionRect: rect, containerSize: containerSize)
+        selectionBorder(rect: rect)
+    }
 
     private func dimOverlay(selectionRect: CGRect, containerSize: CGSize) -> some View {
         Path { path in
@@ -52,11 +112,12 @@ struct SelectionOverlayView: View {
             .allowsHitTesting(false)
     }
 
-    private func bodyDrag(rect: CGRect, containerSize: CGSize) -> some View {
-        let inset: CGFloat = handleSize
+    private func bodyDrag(region snapshot: ScanRegion, containerSize: CGSize) -> some View {
+        let rect = wsdToScreen(snapshot, in: containerSize)
+        // Leave the handles' hit areas (half of which lie inside the box) uncovered.
+        let inset: CGFloat = handleHitSize / 2
         let innerW = max(rect.width - inset * 2, 1)
         let innerH = max(rect.height - inset * 2, 1)
-        let snapshot = effectiveRegion
         return Rectangle()
             .fill(Color.clear)
             .contentShape(Rectangle())
@@ -77,8 +138,8 @@ struct SelectionOverlayView: View {
     }
 
     @ViewBuilder
-    private func handleViews(rect: CGRect, containerSize: CGSize) -> some View {
-        let snapshot = effectiveRegion
+    private func handleViews(region snapshot: ScanRegion, containerSize: CGSize) -> some View {
+        let rect = wsdToScreen(snapshot, in: containerSize)
         ForEach(Handle.allCases, id: \.self) { handle in
             handleCircle(at: handle.position(in: rect))
                 .gesture(
@@ -99,6 +160,9 @@ struct SelectionOverlayView: View {
             .fill(Color.white)
             .frame(width: handleSize, height: handleSize)
             .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: 1.5))
+            // 10 pt visual, 20 pt hit area.
+            .frame(width: handleHitSize, height: handleHitSize)
+            .contentShape(Rectangle())
             .position(position)
     }
 
@@ -127,7 +191,7 @@ struct SelectionOverlayView: View {
 
 // MARK: - Handle enum
 
-private enum Handle: CaseIterable {
+enum Handle: CaseIterable {
     case topLeft, top, topRight, left, right, bottomLeft, bottom, bottomRight
 
     func position(in rect: CGRect) -> CGPoint {

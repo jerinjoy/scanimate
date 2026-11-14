@@ -67,6 +67,48 @@ struct ScanRegion: Equatable, Codable {
     var height: Int
 }
 
+extension ScanRegion {
+    /// Platen dimensions in WSD units (1/1000 inch): Letter, 8.5 in by 11 in.
+    static let bedWidth = 8500
+    static let bedHeight = 11000
+    /// The smallest side a ScanRegion may have, in WSD units (0.5 in).
+    static let minimumSide = 500
+
+    /// The ScanRegion described by a drag on the Overview from `start` to
+    /// `current`, both in the coordinate space of a view of `containerSize`
+    /// that shows the whole Platen. The drag may run in any direction and may
+    /// leave the view; the result is clamped to the Platen. Returns nil when
+    /// either side comes out smaller than `minSize`, so a stray click is not
+    /// a ScanRegion.
+    static func fromDrag(
+        start: CGPoint,
+        current: CGPoint,
+        containerSize: CGSize,
+        minSize: Int = ScanRegion.minimumSide
+    ) -> ScanRegion? {
+        guard containerSize.width > 0, containerSize.height > 0 else { return nil }
+
+        func wsd(_ value: CGFloat, extent: CGFloat, bed: Int) -> Int {
+            let units = (value * CGFloat(bed) / extent).rounded()
+            return Int(max(0, min(CGFloat(bed), units)))
+        }
+
+        let xa = wsd(start.x, extent: containerSize.width, bed: bedWidth)
+        let xb = wsd(current.x, extent: containerSize.width, bed: bedWidth)
+        let ya = wsd(start.y, extent: containerSize.height, bed: bedHeight)
+        let yb = wsd(current.y, extent: containerSize.height, bed: bedHeight)
+
+        let region = ScanRegion(
+            xOffset: min(xa, xb),
+            yOffset: min(ya, yb),
+            width: abs(xa - xb),
+            height: abs(ya - yb)
+        )
+        guard region.width >= minSize, region.height >= minSize else { return nil }
+        return region
+    }
+}
+
 struct ScanTicket: Codable {
     var resolution: Resolution
     var colorMode: ColorMode

@@ -79,6 +79,17 @@ final class ScanViewModel: ObservableObject {
         }
     }
 
+    /// True when the source is the Platen and the user has not drawn a
+    /// ScanRegion yet. A Platen ScanJob needs one; an ADF ScanJob does not.
+    var needsScanRegion: Bool {
+        inputSource == .flatbed && selectedRegion == nil
+    }
+
+    /// The whole gate for starting a ScanJob.
+    var canScan: Bool {
+        !isScanning && !isOverviewing && activeHost != nil && !needsScanRegion
+    }
+
     var isScanComplete: Bool {
         if case .complete = jobState { return true }
         return false
@@ -116,7 +127,7 @@ final class ScanViewModel: ObservableObject {
     // MARK: - Actions
 
     func startScan() {
-        guard let host = resolveHost() else { return }
+        guard canScan, let host = resolveHost() else { return }
         overviewTask?.cancel()
         let scanner = scannerFactory(host)
         var ticket = ScanTicket(
@@ -125,7 +136,10 @@ final class ScanViewModel: ObservableObject {
             paperSize: paperSize,
             source: inputSource
         )
-        ticket.scanRegion = selectedRegion
+        // A ScanRegion is a subset of the Platen; it means nothing to the ADF.
+        if inputSource == .flatbed {
+            ticket.scanRegion = selectedRegion
+        }
 
         scanTask = Task { @MainActor [weak self] in
             guard let self else { return }

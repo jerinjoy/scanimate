@@ -157,26 +157,46 @@ struct ScanPanelView: View {
     // MARK: - Button bar
 
     private var buttonBar: some View {
-        HStack(spacing: 8) {
-            if viewModel.isScanComplete {
-                Button("Save…") { viewModel.save() }
-                    .buttonStyle(.borderedProminent)
-                Button("Scan Again") { viewModel.resetForNextScan() }
-                    .buttonStyle(.bordered)
-            } else {
-                Button("Overview") { startOverview() }
-                    .buttonStyle(.bordered)
-                    .disabled(overviewDisabled)
-                Button("Scan") { startScan() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(scanDisabled)
-                if viewModel.isScanning {
-                    Button("Cancel") { viewModel.cancelScan() }
+        VStack(alignment: .leading, spacing: 8) {
+            if let caption = scanBlockedCaption {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 8) {
+                if viewModel.isScanComplete {
+                    Button("Save…") { viewModel.save() }
+                        .buttonStyle(.borderedProminent)
+                    Button("Scan Again") { viewModel.resetForNextScan() }
                         .buttonStyle(.bordered)
+                } else {
+                    Button("Overview") { startOverview() }
+                        .buttonStyle(.bordered)
+                        .disabled(overviewDisabled)
+                    Button("Scan") { startScan() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(scanDisabled)
+                    if viewModel.isScanning {
+                        Button("Cancel") { viewModel.cancelScan() }
+                            .buttonStyle(.bordered)
+                    }
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
+    }
+
+    /// Why Scan is disabled for a Platen scan with no ScanRegion, or nil when
+    /// that is not what is holding it back.
+    private var scanBlockedCaption: String? {
+        guard viewModel.needsScanRegion,
+              !viewModel.isScanning, !viewModel.isOverviewing, !viewModel.isScanComplete
+        else { return nil }
+        return viewModel.overviewImage == nil
+            ? "To scan from the Platen, press Overview, then drag a box around the area to scan."
+            : "To scan from the Platen, drag a box on the Overview around the area to scan."
     }
 
     private var overviewDisabled: Bool {
@@ -186,8 +206,7 @@ struct ScanPanelView: View {
     }
 
     private var scanDisabled: Bool {
-        viewModel.isScanning || viewModel.isOverviewing
-            || viewModel.activeHost == nil
+        !viewModel.canScan
     }
 
     // MARK: - Right panel
@@ -212,7 +231,7 @@ struct ScanPanelView: View {
             Image(systemName: "scanner")
                 .font(.system(size: 40))
                 .foregroundStyle(.secondary)
-            Text("Press Overview to preview the scanner bed.")
+            Text("Press Overview, then drag a box around the area to scan.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

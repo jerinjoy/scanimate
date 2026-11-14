@@ -44,11 +44,11 @@ The WS-Discovery multicast probe (UDP 3702) that finds WSD-capable Scanners on t
 _Avoid_: network scan, device scan, LAN browser
 
 **Overview**:
-A fast, low-resolution ScanJob across the full Platen, used to preview the bed and let the user select a ScanRegion before running the real scan.
+A fast, low-resolution ScanJob across the full Platen, used to preview the bed so the user can draw a ScanRegion on it before running the real scan.
 _Avoid_: preview scan, quick scan
 
 **ScanRegion**:
-A rectangular subset of the Platen, selected from the Overview preview, that constrains where a subsequent ScanJob reads from. Persists across repeated Overview runs within a session; the user resets it by dragging a new selection, not automatically.
+A rectangular subset of the Platen that constrains where a ScanJob reads from. The user draws it by dragging on the Overview preview, then moves or resizes it; there is no default, so none exists until the user draws one. A Platen ScanJob requires a ScanRegion and cannot start without one; an ADF ScanJob neither needs nor sends one. Persists across repeated Overview runs and ScanJobs within a session; the user replaces it by dragging a new one, and it is never reset automatically.
 _Avoid_: crop, selection, scan area
 
 **Destination**:

@@ -61,11 +61,17 @@ private func makeVM(
     mock: MockScanner,
     discoveryTargets: [ScannerTarget] = []
 ) -> ScanViewModel {
-    ScanViewModel(
+    let vm = ScanViewModel(
         scannerFactory: { _ in mock },
         discoveryFactory: { MockDiscovery(targets: discoveryTargets) }
     )
+    // A Platen ScanJob needs a ScanRegion; give the shared VM one so tests
+    // that just start a scan are not blocked by the gate.
+    vm.selectedRegion = defaultTestRegion
+    return vm
 }
+
+private let defaultTestRegion = ScanRegion(xOffset: 0, yOffset: 0, width: 8500, height: 11000)
 
 // MARK: - Tests
 
@@ -190,6 +196,7 @@ final class ScanViewModelTests: XCTestCase {
 
         let vm = ScanViewModel(scannerFactory: { _ in BlockingScanner() })
         vm.manualHost = "192.168.1.66"
+        vm.selectedRegion = defaultTestRegion
 
         vm.startScan()
         try await waitForCondition(timeout: 1) { vm.isScanning }
@@ -298,6 +305,75 @@ final class ScanViewModelTests: XCTestCase {
         XCTAssertEqual(captured?.scanRegion, region)
     }
 
+    // MARK: - canScan gate
+
+    func testCanScanFalseForPlatenWithoutScanRegion() {
+        let vm = makeVM(mock: MockScanner(states: [], result: .success([])))
+        vm.manualHost = "192.168.1.66"
+        vm.inputSource = .flatbed
+        vm.selectedRegion = nil
+
+        XCTAssertFalse(vm.canScan)
+    }
+
+    func testCanScanTrueForPlatenWithScanRegion() {
+        let vm = makeVM(mock: MockScanner(states: [], result: .success([])))
+        vm.manualHost = "192.168.1.66"
+        vm.inputSource = .flatbed
+        vm.selectedRegion = ScanRegion(xOffset: 1000, yOffset: 1000, width: 2000, height: 3000)
+
+        XCTAssertTrue(vm.canScan)
+    }
+
+    func testCanScanTrueForADFWithoutScanRegion() {
+        let vm = makeVM(mock: MockScanner(states: [], result: .success([])))
+        vm.manualHost = "192.168.1.66"
+        vm.inputSource = .adf
+        vm.selectedRegion = nil
+
+        XCTAssertTrue(vm.canScan)
+    }
+
+    func testCanScanFalseWithoutHost() {
+        let vm = makeVM(mock: MockScanner(states: [], result: .success([])))
+        vm.selectedTarget = nil
+        vm.manualHost = ""
+
+        XCTAssertFalse(vm.canScan)
+    }
+
+    func testStartScanCreatesNoScanJobWhenCanScanIsFalse() async throws {
+        let mock = MockScanner(states: [.checkingScanner], result: .success([Fixtures.minimalJPEG]))
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
+        vm.inputSource = .flatbed
+        vm.selectedRegion = nil
+
+        vm.startScan()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertNil(vm.scanTask)
+        XCTAssertNil(vm.jobState)
+        let captured = await mock.capturedTicket
+        XCTAssertNil(captured, "No ScanTicket should reach the Scanner")
+    }
+
+    func testADFTicketCarriesNoScanRegion() async throws {
+        let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
+        let vm = makeVM(mock: mock)
+        vm.manualHost = "192.168.1.66"
+        // A ScanRegion drawn for the Platen before switching the source to ADF.
+        vm.selectedRegion = ScanRegion(xOffset: 1000, yOffset: 2000, width: 5000, height: 6000)
+        vm.inputSource = .adf
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.isScanComplete }
+
+        let captured = await mock.capturedTicket
+        XCTAssertEqual(captured?.source, .adf)
+        XCTAssertNil(captured?.scanRegion)
+    }
+
     func testOverviewErrorSetsAlertError() async throws {
         let mock = MockScanner(
             states: [],
@@ -346,6 +422,7 @@ final class ScanViewModelTests: XCTestCase {
         )
         let target = ScannerTarget(host: "10.0.0.42", displayName: nil, source: .discovered)
         vm.selectedTarget = target
+        vm.selectedRegion = defaultTestRegion
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.isScanComplete }
