@@ -786,6 +786,47 @@ final class ScanViewModelTests: XCTestCase {
         XCTAssertTrue(vm.discoveredTargets.contains { $0.host == "10.0.0.2" })
     }
 
+    func testDiscoveryRunsOneRoundPerCallNotPeriodically() async throws {
+        actor CountingDiscovery: ScannerDiscoveryProtocol {
+            private(set) var rounds = 0
+            func start(onFound: @escaping @Sendable (ScannerTarget) -> Void) async { rounds += 1 }
+            func stop() async {}
+        }
+        let discovery = CountingDiscovery()
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { discovery }
+        )
+
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 2) { !vm.isDiscovering }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let afterFirst = await discovery.rounds
+        XCTAssertEqual(afterFirst, 1)
+
+        // Asking again (e.g. reopening the picker) probes again.
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 2) { !vm.isDiscovering }
+        let afterSecond = await discovery.rounds
+        XCTAssertEqual(afterSecond, 2)
+    }
+
+    func testSaveDiscoveredTargetAddsItToSavedTargets() async throws {
+        let found = ScannerTarget(host: "10.0.0.77", displayName: "Scanner C", source: .discovered)
+        let vm = ScanViewModel(
+            scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+            discoveryFactory: { MockDiscovery(targets: [found]) }
+        )
+        defer { vm.removeSavedTarget(found) }
+
+        vm.startDiscovery()
+        try await waitForCondition(timeout: 2) { !vm.discoveredTargets.isEmpty }
+        vm.saveDiscoveredTarget(found)
+
+        XCTAssertTrue(vm.savedTargets.contains { $0.host == "10.0.0.77" && $0.displayName == "Scanner C" })
+        XCTAssertFalse(vm.unsavedDiscoveredTargets.contains { $0.host == "10.0.0.77" })
+    }
+
     func testDuplicateDiscoveredTargetsAreDeduped() async throws {
         let duplicate = ScannerTarget(host: "10.0.0.1", displayName: nil, source: .discovered)
         let vm = ScanViewModel(

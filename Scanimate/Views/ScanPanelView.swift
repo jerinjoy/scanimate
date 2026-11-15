@@ -4,6 +4,9 @@ struct ScanPanelView: View {
     @ObservedObject var viewModel: ScanViewModel
 
     private static let otherHostSentinel = "_other_"
+    /// The device picker's last item. Also how the picker's pop-up is told apart
+    /// from the other pop-ups in the form when one is about to open.
+    private static let otherHostTitle = "Other…"
 
     @State private var isManagingDevices = false
 
@@ -37,6 +40,11 @@ struct ScanPanelView: View {
         }
         .onAppear {
             syncSettings()
+        }
+        // Discovery is on demand: probe when the user opens the device picker.
+        .onReceive(NotificationCenter.default.publisher(for: NSPopUpButton.willPopUpNotification)) { note in
+            guard let popUp = note.object as? NSPopUpButton,
+                  popUp.itemTitles.contains(Self.otherHostTitle) else { return }
             viewModel.startDiscovery()
         }
         // Files may have appeared or gone while the app was in the background.
@@ -66,7 +74,6 @@ struct ScanPanelView: View {
                     manualHostRow
                 }
                 Button("Manage Devices…") { isManagingDevices = true }
-                    .disabled(viewModel.savedTargets.isEmpty)
             } header: {
                 HStack(spacing: 6) {
                     Text("Scanner")
@@ -198,7 +205,7 @@ struct ScanPanelView: View {
                     }
                 }
             }
-            Text("Other…").tag(Self.otherHostSentinel)
+            Text(Self.otherHostTitle).tag(Self.otherHostSentinel)
         }
     }
 

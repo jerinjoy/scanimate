@@ -20,7 +20,7 @@ final class ScanViewModel: ObservableObject {
             !savedTargets.contains { $0.host == discovered.host }
         }
     }
-    /// True while the background WS-Discovery probe is running.
+    /// True while an on-demand WS-Discovery probe round is running.
     @Published private(set) var isDiscovering: Bool = false
 
     // MARK: - Scan settings
@@ -129,6 +129,9 @@ final class ScanViewModel: ObservableObject {
     private(set) var overviewTask: Task<Void, Never>?
     private var discoveryTask: Task<Void, Never>?
     private var activeDiscovery: (any ScannerDiscoveryProtocol)?
+    /// Identifies the in-flight probe round, so a round ended by stopDiscovery()
+    /// can't clear the state of the round that replaced it.
+    private var discoveryRound: UUID?
 
     private var scannerFactory: @Sendable (String) -> any WSDScannerProtocol
     private var discoveryFactory: @Sendable () -> any ScannerDiscoveryProtocol
@@ -343,33 +346,44 @@ final class ScanViewModel: ObservableObject {
         }
     }
 
+    /// Adds a discovered target to the saved list, so it is kept across launches.
+    func saveDiscoveredTarget(_ target: ScannerTarget) {
+        saveTargetIfNeeded(ScannerTarget(host: target.host, displayName: target.displayName, source: .manual))
+    }
+
     // MARK: - Discovery
 
+    /// Runs one WS-Discovery probe round. Discovery is on demand — it runs when
+    /// the user goes looking for a Scanner (opening the device picker or Manage
+    /// Devices), never in the background. A call while a round is already in
+    /// flight is ignored. Results accumulate in `discoveredTargets` for the session.
     func startDiscovery() {
         guard discoveryTask == nil else { return }
-        let factory = discoveryFactory
+        let discovery = discoveryFactory()
+        let round = UUID()
+        activeDiscovery = discovery
+        discoveryRound = round
+        isDiscovering = true
         discoveryTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            let discovery = factory()
-            self.activeDiscovery = discovery
-            while !Task.isCancelled {
-                self.isDiscovering = true
-                await discovery.start { @Sendable [weak self] target in
-                    Task { @MainActor [weak self] in
-                        self?.handleDiscoveredTarget(target)
-                    }
+            await discovery.start { @Sendable [weak self] target in
+                Task { @MainActor [weak self] in
+                    self?.handleDiscoveredTarget(target)
                 }
-                self.isDiscovering = false
-                guard !Task.isCancelled else { break }
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
             }
+            // stopDiscovery() may have ended this round and a new one begun;
+            // only clear state that still belongs to this round.
+            guard let self, self.discoveryRound == round else { return }
+            self.discoveryTask = nil
             self.isDiscovering = false
+            // activeDiscovery is kept so a later stopDiscovery() can still cancel
+            // hostname lookups that outlive the probe window.
         }
     }
 
     func stopDiscovery() {
         discoveryTask?.cancel()
         discoveryTask = nil
+        discoveryRound = nil
         isDiscovering = false
         if let discovery = activeDiscovery {
             activeDiscovery = nil
