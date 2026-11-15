@@ -7,10 +7,3 @@ DerivedData/
 # Xcode user data
 *.xcuserstate
 xcuserdata/
-
-# Scan output files
-*.png
-*.tif
-*.tiff
-!Scanimate/Assets.xcassets/**/*.png
-!docs/icon*.png
