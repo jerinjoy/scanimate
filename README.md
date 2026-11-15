@@ -1,33 +1,35 @@
-<img src="docs/icon.png" width="128" alt="Scanimate icon">
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="Scanimate icon">
+</p>
 
-# Scanimate
-Bringing old scanners back to life
+<h1 align="center">Scanimate</h1>
 
-A macOS app that scans from a **Samsung SL-M2070 series** network MFP using the WSD protocol, without Apple's Image Capture / ICA framework (which doesn't detect this device).
+<p align="center">Bringing old scanners back to life</p>
+
+Scanimate is a macOS app for scanning from a **Samsung SL-M2070 series** network printer/scanner. Apple's Image Capture doesn't detect it. Scanimate talks to it directly over WSD (WS-Scan).
+
+## Features
+
+- **Find scanners** on your network automatically, or add one by IP and save it
+- **Preview and crop**: run a quick preview of the flatbed, then drag out the area to scan
+- **Document feeder** support: scans every sheet into a single PDF
+- **Save automatically** as PDF, PNG, JPEG or TIFF to a folder you pick, with no save dialog
+- **Build multi-page PDFs** by appending each new scan to an existing file
 
 ## Requirements
 
-- macOS 13.0 or later
-- The printer must be on the local network and reachable by IP.
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) — `brew install xcodegen`
+- macOS 13 or later
+- A scanner on the same local network
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
-## Setup
+## Build
 
 ```bash
 xcodegen generate
 open Scanimate.xcodeproj
 ```
 
-## Protocol notes
+## More
 
-The SL-M2070 exposes its scanner via **WSD (WS-Scan)** — SOAP 1.2 messages sent over plain HTTP to port 8018 (`http://<printer-ip>:8018/wsd/scan`). It does **not** support eSCL (Apple AirScan).
-
-The scan sequence is three SOAP calls:
-
-1. **`GetScannerElements`** — checks scanner state and capabilities.
-2. **`CreateScanJob`** — sends a `ScanTicket` XML with DPI, color mode, paper size, and returns a `JobId` + `JobToken`.
-3. **`RetrieveImage`** — streams the scanned image back as a JPEG wrapped in an MTOM (multipart MIME) HTTP response.
-
-The XML namespace for all scan operations is `http://schemas.microsoft.com/windows/2006/08/wdp/scan` (the `08` date variant — real devices return HTTP 400 for the `01` variant). Image dimensions in the `ScanTicket` are in thousandths of an inch (letter = 8500 × 11000).
-
-Primary sources: [sane-airscan](https://github.com/alexpevzner/sane-airscan), [PyWSD](https://github.com/roncapat/WSD-python), [Microsoft WSD Scan spec](https://learn.microsoft.com/en-us/windows-hardware/drivers/image/).
+- [`CONTEXT.md`](CONTEXT.md): domain language and behaviour
+- [`docs/adr/`](docs/adr/): design decisions
