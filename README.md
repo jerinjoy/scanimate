@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="128" alt="Scanimate icon">
+
 # Scanimate
 Bringing old scanners back to life
 

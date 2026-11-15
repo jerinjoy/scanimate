@@ -24,6 +24,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "13.0"
         CODE_SIGN_ENTITLEMENTS: Scanimate/Scanimate.entitlements
         INFOPLIST_FILE: Scanimate/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: YES
         ENABLE_TESTABILITY: YES

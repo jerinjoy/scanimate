@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0450C4426E0742A4CA5CADCD /* DestinationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70C30B63BCB15A22227F0EC /* DestinationPlanTests.swift */; };
+		12CEA7BDE6A2A556AB91F47C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 286E33FE0FDEFE09E53A47C5 /* Assets.xcassets */; };
 		12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */; };
 		27F5C18AE6D08B7580ADBFF0 /* WSScannerDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A59B37C17E5ACB58E180BB /* WSScannerDiscovery.swift */; };
 		2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */; };
@@ -49,6 +50,7 @@
 		059CA5BA5FEEFC9C28B36201 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		17EEE03EA1E5D8BF241516F0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLProtocolStub.swift; sourceTree = "<group>"; };
+		286E33FE0FDEFE09E53A47C5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3EFA96FD4E15608545F434B6 /* SelectionOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionOverlayView.swift; sourceTree = "<group>"; };
 		4082EB57BC165DA3C49ECB9C /* WSDScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSDScannerTests.swift; sourceTree = "<group>"; };
 		433DF89293AF1D828103C2BC /* Scanimate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Scanimate.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -130,6 +132,7 @@
 		76E248388E5D6BDA7F23A5E0 /* Scanimate */ = {
 			isa = PBXGroup;
 			children = (
+				286E33FE0FDEFE09E53A47C5 /* Assets.xcassets */,
 				059CA5BA5FEEFC9C28B36201 /* Info.plist */,
 				E2F5979391E9ECD589FBC55C /* Scanimate.entitlements */,
 				F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */,
@@ -214,6 +217,7 @@
 			buildConfigurationList = 33EBA9DCF831567B22F27E88 /* Build configuration list for PBXNativeTarget "Scanimate" */;
 			buildPhases = (
 				923D70EC5A4998F31EF4B136 /* Sources */,
+				C2C5D5A42E110D48E82A6C24 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -261,6 +265,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		C2C5D5A42E110D48E82A6C24 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12CEA7BDE6A2A556AB91F47C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DA77619C1AF196E2D5082399 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

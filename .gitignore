@@ -12,3 +12,5 @@ xcuserdata/
 *.png
 *.tif
 *.tiff
+!Scanimate/Assets.xcassets/**/*.png
+!docs/icon*.png
