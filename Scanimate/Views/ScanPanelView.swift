@@ -133,6 +133,12 @@ struct ScanPanelView: View {
             }
             .disabled(viewModel.isFileTypeForced)
 
+            // Only a PDF can be added to, so the checkbox is not shown otherwise.
+            if viewModel.canAppendToExistingPDF {
+                Toggle("Add to existing PDF", isOn: $viewModel.appendToExistingPDF)
+                    .toggleStyle(.checkbox)
+            }
+
             LabeledContent("Folder") {
                 HStack(spacing: 6) {
                     Text(viewModel.destinationFolder?.lastPathComponent ?? "None")
@@ -366,7 +372,7 @@ struct ScanPanelView: View {
     @ViewBuilder
     private var saveStatusRow: some View {
         switch viewModel.saveStatus {
-        case .saved:
+        case .saved, .appended:
             Label(viewModel.statusMessage, systemImage: "checkmark.circle.fill")
                 .font(.callout)
                 .foregroundStyle(.secondary)

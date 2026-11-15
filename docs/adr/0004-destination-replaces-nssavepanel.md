@@ -10,6 +10,25 @@ This was chosen because a native save panel cannot express "append to an existin
 
 Appending also extends ADR-0002: multi-page PDF assembly is no longer implicit to the ADF source. A user can build a multi-page PDF from repeated single-page Platen scans by checking append on each pass and reusing the same Destination filename.
 
+## Append rewrites the existing PDF, safely, or not at all
+
+With append checked and the file type PDF, the file at the Destination's filename is the target and the name is never incremented. What happens depends on what is there, and the caption says which before the ScanJob starts:
+
+- Nothing: the file is created, as a normal write would.
+- A readable PDF: the ScanResult's pages are inserted after its last page.
+- A password-protected or encrypted PDF, or one that forbids document assembly: blocked.
+- Anything else — not a PDF, not a regular file, unreadable, or read-only: blocked.
+
+A blocked target disables Scan rather than falling back to an incremented name: the user asked for the pages to go into that file, and quietly writing them somewhere else would leave a document missing pages with nothing to say so. For the same reason the writer runs the checks again at write time, and a target that became unusable while the Scanner was working fails the write with "Retry Save" on offer; it never creates a different file.
+
+The append is not done in place. The existing document is opened, the new pages are added in memory, the result is written to a temporary file in the same folder, and that file is swapped in with `FileManager.replaceItemAt`. A failure at any step leaves the original PDF byte-identical. The temporary file sits beside the target because the swap has to stay on one volume and the chosen folder is the one place the sandboxed app is sure to have access to.
+
+Rewriting a PDF through PDFKit invalidates any digital signature and may drop features of the original that PDFKit does not carry over. That is accepted: append is for PDFs built by scanning, not a general PDF editor.
+
+The append flag is not persisted. The filename and file type are, so a remembered flag would let the first scan of a new launch add pages to a document finished days ago, with no review step to catch it. It starts unchecked on every launch, and is hidden — and its value ignored — whenever the file type is not PDF.
+
+PDF pages are sized from the ScanTicket's resolution (pixels × 72 ÷ DPI), not from the density metadata in the Scanner's JPEG. PDFKit otherwise sizes a page from that metadata and falls back to one point per pixel when it is missing, which would put a 2550 × 3300 pt page beside 612 × 792 pt ones in an appended document.
+
 ## The folder is chosen each launch and not remembered
 
 The Destination's filename and file type persist across launches; its folder does not. The folder is held in memory only, so every launch starts with none and Scan stays disabled until the user picks one with the folder chooser.
@@ -18,7 +37,7 @@ The app is sandboxed. A folder picked in an open panel stays accessible until th
 
 ## Consequences of writing with no review step
 
-- A ScanJob cannot start while the Destination is invalid (no folder, or an empty filename or one containing `/` or `:`), because there would be nowhere to put its ScanResult.
+- A ScanJob cannot start while the Destination is invalid (no folder, an empty filename or one containing `/` or `:`, or an append target that cannot be added to), because there would be nowhere to put its ScanResult.
 - With the ADF as source the file type is forced to PDF. ADR-0002 made PDF the *default* for the ADF; with no dialog left in which to notice the mistake, a multi-page ScanResult written as PNG would silently keep only page 1, so the choice is removed. The file type chosen for the Platen comes back when the source does.
-- One pure planning function decides what a write will do — create, create under an incremented name, or blocked with a reason. The caption under the Destination controls and the write itself both use it, and the write recomputes it, so what the user was told and what happens cannot drift apart.
+- One pure planning function decides what a write will do — create, create under an incremented name, add to an existing PDF, or blocked with a reason. The caption under the Destination controls and the write itself both use it, and the write recomputes it, so what the user was told and what happens cannot drift apart.
 - When a write fails the pages stay in memory and the user is offered "Retry Save"; nothing is discarded until the next ScanJob or Overview starts.

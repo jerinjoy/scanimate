@@ -54,6 +54,12 @@ final class ScanViewModel: ObservableObject {
     @Published var destinationFolder: URL? {
         didSet { refreshDestinationPlan() }
     }
+    /// "Add to existing PDF". Session-only — never persisted — so every launch
+    /// starts with it off and cannot add to an old file by surprise. It only
+    /// applies while the file type is PDF (see `destination`).
+    @Published var appendToExistingPDF: Bool = false {
+        didSet { refreshDestinationPlan() }
+    }
     /// What the next write to the Destination will do. A preview: it is
     /// recomputed at the moment of the write.
     @Published private(set) var destinationPlan: DestinationPlan = .blocked(.noFolder)
@@ -62,6 +68,8 @@ final class ScanViewModel: ObservableObject {
 
     enum SaveStatus: Equatable {
         case saved(fileName: String, folderName: String)
+        /// The pages were added to an existing PDF, which now holds `totalPageCount`.
+        case appended(fileName: String, addedPageCount: Int, totalPageCount: Int)
         /// The write failed; the ScanResult is still in memory for a retry.
         case failed(String)
     }
@@ -75,8 +83,17 @@ final class ScanViewModel: ObservableObject {
         isFileTypeForced ? .pdf : platenFileType
     }
 
+    /// Append can only apply to a PDF, so the checkbox is offered only then.
+    var canAppendToExistingPDF: Bool { fileType == .pdf }
+
     var destination: Destination {
-        Destination(name: destinationName, fileType: fileType, folder: destinationFolder)
+        Destination(
+            name: destinationName,
+            fileType: fileType,
+            folder: destinationFolder,
+            // The checkbox's value is ignored while it is hidden.
+            append: appendToExistingPDF && canAppendToExistingPDF
+        )
     }
 
     /// One sentence saying what the next scan will write, or why Scan is disabled.
@@ -87,7 +104,10 @@ final class ScanViewModel: ObservableObject {
     /// becomes active (files may have changed behind its back).
     func refreshDestinationPlan() {
         let writer = destinationWriter
-        let plan = destination.plan { writer.fileExists(at: $0) }
+        let plan = destination.plan(
+            fileExists: { writer.fileExists(at: $0) },
+            appendTarget: { writer.appendTarget(at: $0) }
+        )
         if plan != destinationPlan { destinationPlan = plan }
     }
 
@@ -174,6 +194,9 @@ final class ScanViewModel: ObservableObject {
             switch saveStatus {
             case .saved(let fileName, let folderName):
                 return "Saved \(fileName) to \(folderName)"
+            case .appended(let fileName, let addedPageCount, let totalPageCount):
+                return "Added \(DestinationPlan.pageCountText(addedPageCount)) to \(fileName)"
+                    + " (\(DestinationPlan.pageCountText(totalPageCount)))"
             case .failed(let reason):
                 return "Not saved. \(reason)"
             case nil:
@@ -445,7 +468,8 @@ final class ScanViewModel: ObservableObject {
     // MARK: - Save
 
     /// Writes the pages again after a failed write. The plan is recomputed, so
-    /// a retry picks up a newly chosen folder or a name that has since been taken.
+    /// a retry picks up a newly chosen folder, a name that has since been taken,
+    /// or an append target that has been fixed or unticked.
     func retrySave() {
         guard case .failed = saveStatus else { return }
         saveScanResult()
@@ -454,6 +478,8 @@ final class ScanViewModel: ObservableObject {
     /// Writes the completed ScanJob's ScanResult to the Destination through the
     /// DestinationWriter. The plan is recomputed here; the caption was only a preview.
     /// On failure the pages stay in memory and `saveStatus` carries the reason.
+    /// An append whose target has become unusable fails here; it never falls
+    /// back to creating a different file.
     private func saveScanResult() {
         guard case .complete(let pages) = jobState, !pages.isEmpty else { return }
         let dpiValue = Int(resolution.rawValue) ?? 300
@@ -465,8 +491,19 @@ final class ScanViewModel: ObservableObject {
         }
 
         do {
-            try destinationWriter.write(pages: pages, dpi: dpiValue, to: url, as: fileType, append: false)
-            saveStatus = .saved(fileName: url.lastPathComponent, folderName: folder.lastPathComponent)
+            let outcome = try destinationWriter.write(
+                pages: pages, dpi: dpiValue, to: url, as: fileType, append: destinationPlan.isAppend
+            )
+            switch outcome {
+            case .created:
+                saveStatus = .saved(fileName: url.lastPathComponent, folderName: folder.lastPathComponent)
+            case .appended(let addedPageCount, let totalPageCount):
+                saveStatus = .appended(
+                    fileName: url.lastPathComponent,
+                    addedPageCount: addedPageCount,
+                    totalPageCount: totalPageCount
+                )
+            }
             refreshDestinationPlan()
         } catch {
             if destinationWriter.fileExists(at: folder) {

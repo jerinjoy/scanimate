@@ -10,10 +10,14 @@ final class DestinationPlanTests: XCTestCase {
         name: String = "Scan",
         type: FileType = .pdf,
         folder: URL?,
-        existing: Set<String> = []
+        append: Bool = false,
+        existing: Set<String> = [],
+        appendTargets: [String: PDFAppendTarget] = [:]
     ) -> DestinationPlan {
-        Destination(name: name, fileType: type, folder: folder)
-            .plan { existing.contains($0.lastPathComponent) }
+        Destination(name: name, fileType: type, folder: folder, append: append).plan(
+            fileExists: { existing.contains($0.lastPathComponent) },
+            appendTarget: { appendTargets[$0.lastPathComponent] ?? .unusable }
+        )
     }
 
     // MARK: Create
@@ -116,8 +120,111 @@ final class DestinationPlanTests: XCTestCase {
 
     func testABlockedPlanNeverLooksAtTheDisk() {
         var lookups = 0
-        _ = Destination(name: "a/b", fileType: .pdf, folder: folder).plan { _ in lookups += 1; return false }
-        _ = Destination(name: "Scan", fileType: .pdf, folder: nil).plan { _ in lookups += 1; return false }
+        for destination in [
+            Destination(name: "a/b", fileType: .pdf, folder: folder, append: true),
+            Destination(name: "Scan", fileType: .pdf, folder: nil, append: true)
+        ] {
+            _ = destination.plan(
+                fileExists: { _ in lookups += 1; return false },
+                appendTarget: { _ in lookups += 1; return .unusable }
+            )
+        }
         XCTAssertEqual(lookups, 0)
+    }
+
+    // MARK: Append
+
+    private var scanPDF: URL { folder.appendingPathComponent("Scan.pdf") }
+
+    func testAppendToAMissingFileCreatesIt() {
+        let plan = plan(folder: folder, append: true)
+
+        XCTAssertEqual(plan, .createForAppend(scanPDF))
+        XCTAssertEqual(plan.url, scanPDF)
+        XCTAssertTrue(plan.isAppend)
+        XCTAssertFalse(plan.isBlocked)
+        XCTAssertEqual(plan.caption, "Scan.pdf doesn't exist yet. Will create it")
+    }
+
+    func testAppendToAReadablePDFAddsToItWithoutIncrementing() {
+        let plan = plan(
+            folder: folder, append: true,
+            existing: ["Scan.pdf"], appendTargets: ["Scan.pdf": .appendable(pageCount: 3)]
+        )
+
+        XCTAssertEqual(plan, .append(scanPDF, existingPageCount: 3))
+        XCTAssertEqual(plan.url, scanPDF)
+        XCTAssertTrue(plan.isAppend)
+        XCTAssertFalse(plan.isBlocked)
+        XCTAssertEqual(plan.caption, "Will add to Scan.pdf (3 pages)")
+    }
+
+    func testAppendCaptionCountsASinglePageInTheSingular() {
+        let plan = plan(
+            folder: folder, append: true,
+            existing: ["Scan.pdf"], appendTargets: ["Scan.pdf": .appendable(pageCount: 1)]
+        )
+        XCTAssertEqual(plan.caption, "Will add to Scan.pdf (1 page)")
+    }
+
+    func testAppendToAProtectedPDFIsBlocked() {
+        let plan = plan(
+            folder: folder, append: true,
+            existing: ["Scan.pdf"], appendTargets: ["Scan.pdf": .protected]
+        )
+
+        XCTAssertEqual(plan, .blocked(.appendTargetProtected(scanPDF)))
+        XCTAssertTrue(plan.isBlocked)
+        XCTAssertNil(plan.url)
+        XCTAssertEqual(plan.caption, "Scan.pdf is protected and can't be added to")
+    }
+
+    func testAppendToAFileThatIsNotAUsablePDFIsBlocked() {
+        let plan = plan(
+            folder: folder, append: true,
+            existing: ["Scan.pdf"], appendTargets: ["Scan.pdf": .unusable]
+        )
+
+        XCTAssertEqual(plan, .blocked(.appendTargetUnusable(scanPDF)))
+        XCTAssertTrue(plan.isBlocked)
+        XCTAssertNil(plan.url)
+        XCTAssertEqual(plan.caption, "Scan.pdf can't be opened as a PDF")
+    }
+
+    func testAppendIsIgnoredForFileTypesThatAreNotPDF() {
+        for type in [FileType.png, .jpeg, .tiff] {
+            let name = "Scan.\(type.fileExtension)"
+            var askedAboutAppending = false
+            let destination = Destination(name: "Scan", fileType: type, folder: folder, append: true)
+            XCTAssertFalse(destination.appendsToPDF)
+
+            let taken = destination.plan(
+                fileExists: { $0.lastPathComponent == name },
+                appendTarget: { _ in askedAboutAppending = true; return .appendable(pageCount: 1) }
+            )
+
+            XCTAssertEqual(taken.caption, "\(name) exists. Will save as Scan 2.\(type.fileExtension)")
+            XCTAssertFalse(taken.isAppend)
+            XCTAssertFalse(askedAboutAppending)
+            XCTAssertEqual(plan(type: type, folder: folder, append: true).caption, "Will create \(name)")
+        }
+    }
+
+    func testWithoutAppendAnExistingPDFIsIncrementedAndNeverInspected() {
+        var askedAboutAppending = false
+        let plan = Destination(name: "Scan", fileType: .pdf, folder: folder).plan(
+            fileExists: { $0.lastPathComponent == "Scan.pdf" },
+            appendTarget: { _ in askedAboutAppending = true; return .appendable(pageCount: 3) }
+        )
+
+        XCTAssertEqual(plan.caption, "Scan.pdf exists. Will save as Scan 2.pdf")
+        XCTAssertFalse(plan.isAppend)
+        XCTAssertFalse(askedAboutAppending)
+    }
+
+    func testAnInvalidNameIsReportedBeforeTheAppendTarget() {
+        XCTAssertEqual(plan(name: "a/b", folder: folder, append: true), .blocked(.invalidName))
+        XCTAssertEqual(plan(name: "", folder: folder, append: true), .blocked(.emptyName))
+        XCTAssertEqual(plan(folder: nil, append: true), .blocked(.noFolder))
     }
 }

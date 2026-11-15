@@ -1,3 +1,4 @@
+import PDFKit
 import XCTest
 @testable import Scanimate
 
@@ -398,6 +399,292 @@ final class ScanViewModelTests: XCTestCase {
 
         XCTAssertEqual(vm.alertError, ScanError.unreachable(host: "192.168.1.66"))
         XCTAssertFalse(vm.isOverviewing)
+    }
+
+    // MARK: - Append to existing PDF
+
+    private var scanPDF: URL { defaultTestFolder.appendingPathComponent("Scan.pdf") }
+
+    /// A view model ready to scan `pages` from the Platen as PDF into the test folder.
+    private func makeAppendVM(pages: [Data], writer: InMemoryDestinationWriter) -> ScanViewModel {
+        let mock = MockScanner(states: [.checkingScanner], result: .success(pages))
+        let vm = ScanViewModel(
+            scannerFactory: { _ in mock },
+            discoveryFactory: { MockDiscovery() },
+            destinationWriter: writer,
+            defaults: makeIsolatedDefaults()
+        )
+        vm.selectedTarget = nil
+        vm.manualHost = "192.168.1.66"
+        vm.selectedRegion = defaultTestRegion
+        vm.inputSource = .flatbed
+        vm.platenFileType = .pdf
+        vm.destinationFolder = defaultTestFolder
+        return vm
+    }
+
+    private func makePDF(pageCount: Int) throws -> Data {
+        let pages = try (0..<pageCount).map { _ in try makeTestJPEG(width: 30, height: 40) }
+        return try FileDestinationWriter.encode(pages: pages, dpi: 300, as: .pdf)
+    }
+
+    func testAppendWithExistingFilePassesAppendTrueToTheSameURL() async throws {
+        let page = try makeTestJPEG(width: 40, height: 30)
+        let writer = InMemoryDestinationWriter(files: [scanPDF: try makePDF(pageCount: 3)], folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [page], writer: writer)
+        vm.appendToExistingPDF = true
+        XCTAssertEqual(vm.destinationPlan, .append(scanPDF, existingPageCount: 3))
+        XCTAssertEqual(vm.destinationCaption, "Will add to Scan.pdf (3 pages)")
+        XCTAssertTrue(vm.canScan)
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+
+        XCTAssertEqual(
+            writer.writes,
+            [.init(pages: [page], dpi: 300, url: scanPDF, fileType: .pdf, append: true)]
+        )
+        XCTAssertEqual(Array(writer.files.keys), [scanPDF.path], "No new file, no incremented name")
+        XCTAssertEqual(writer.pdfPageCount(at: scanPDF), 4)
+        XCTAssertEqual(vm.saveStatus, .appended(fileName: "Scan.pdf", addedPageCount: 1, totalPageCount: 4))
+        XCTAssertEqual(vm.statusMessage, "Added 1 page to Scan.pdf (4 pages)")
+        XCTAssertEqual(vm.destinationCaption, "Will add to Scan.pdf (4 pages)", "The caption follows the file")
+    }
+
+    func testAppendWithNoFileCreatesIt() async throws {
+        let page = try makeTestJPEG(width: 40, height: 30)
+        let writer = InMemoryDestinationWriter(folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [page], writer: writer)
+        vm.appendToExistingPDF = true
+        XCTAssertEqual(vm.destinationPlan, .createForAppend(scanPDF))
+        XCTAssertEqual(vm.destinationCaption, "Scan.pdf doesn't exist yet. Will create it")
+        XCTAssertTrue(vm.canScan)
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+
+        XCTAssertEqual(writer.writes.map(\.url), [scanPDF])
+        XCTAssertEqual(writer.pdfPageCount(at: scanPDF), 1)
+        XCTAssertEqual(vm.saveStatus, .saved(fileName: "Scan.pdf", folderName: "Scans"))
+        XCTAssertEqual(vm.statusMessage, "Saved Scan.pdf to Scans")
+        XCTAssertEqual(vm.destinationCaption, "Will add to Scan.pdf (1 page)")
+    }
+
+    func testRepeatedPlatenScansBuildOneDocument() async throws {
+        let writer = InMemoryDestinationWriter(folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [try makeTestJPEG(width: 40, height: 30)], writer: writer)
+        vm.appendToExistingPDF = true
+
+        for expected in ["Saved Scan.pdf to Scans", "Added 1 page to Scan.pdf (2 pages)", "Added 1 page to Scan.pdf (3 pages)"] {
+            XCTAssertTrue(vm.canScan)
+            vm.startScan()
+            try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+            XCTAssertEqual(vm.statusMessage, expected)
+        }
+
+        XCTAssertEqual(Array(writer.files.keys), [scanPDF.path])
+        XCTAssertEqual(writer.pdfPageCount(at: scanPDF), 3)
+    }
+
+    func testADFScanAppendsAllItsPagesInOrder() async throws {
+        let pages = [try makeTestJPEG(width: 300, height: 150), try makeTestJPEG(width: 150, height: 300)]
+        let writer = InMemoryDestinationWriter(files: [scanPDF: try makePDF(pageCount: 1)], folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: pages, writer: writer)
+        vm.platenFileType = .png
+        vm.inputSource = .adf
+        XCTAssertTrue(vm.canAppendToExistingPDF, "An ADF ScanJob is always PDF")
+        vm.appendToExistingPDF = true
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+
+        XCTAssertEqual(writer.writes, [.init(pages: pages, dpi: 300, url: scanPDF, fileType: .pdf, append: true)])
+        XCTAssertEqual(vm.statusMessage, "Added 2 pages to Scan.pdf (3 pages)")
+        let document = try XCTUnwrap(PDFDocument(data: try XCTUnwrap(writer.files[scanPDF.path])))
+        let landscape = (0..<3).compactMap { document.page(at: $0)?.bounds(for: .mediaBox).size }.map { $0.width > $0.height }
+        XCTAssertEqual(landscape, [false, true, false])
+    }
+
+    func testUncheckedDefersToIncrement() async throws {
+        let page = try makeTestJPEG(width: 40, height: 30)
+        let original = try makePDF(pageCount: 3)
+        let writer = InMemoryDestinationWriter(files: [scanPDF: original], folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [page], writer: writer)
+        XCTAssertFalse(vm.appendToExistingPDF, "Unticked by default")
+        XCTAssertEqual(vm.destinationCaption, "Scan.pdf exists. Will save as Scan 2.pdf")
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+
+        let incremented = defaultTestFolder.appendingPathComponent("Scan 2.pdf")
+        XCTAssertEqual(
+            writer.writes,
+            [.init(pages: [page], dpi: 300, url: incremented, fileType: .pdf, append: false)]
+        )
+        XCTAssertEqual(writer.files[scanPDF.path], original, "The existing PDF is untouched")
+        XCTAssertEqual(vm.statusMessage, "Saved Scan 2.pdf to Scans")
+    }
+
+    func testBlockedAppendTargetMakesCanScanFalse() throws {
+        let cases: [(PDFAppendTarget, DestinationPlan, String)] = [
+            (.protected, .blocked(.appendTargetProtected(scanPDF)), "Scan.pdf is protected and can't be added to"),
+            (.unusable, .blocked(.appendTargetUnusable(scanPDF)), "Scan.pdf can't be opened as a PDF")
+        ]
+        for (target, plan, caption) in cases {
+            let writer = InMemoryDestinationWriter(files: [scanPDF: try makePDF(pageCount: 2)], folders: [defaultTestFolder])
+            writer.forceAppendTarget(target, at: scanPDF)
+            let vm = makeAppendVM(pages: [], writer: writer)
+            XCTAssertTrue(vm.canScan, "Unticked, the file is only a taken name")
+
+            vm.appendToExistingPDF = true
+            XCTAssertFalse(vm.canScan)
+            XCTAssertEqual(vm.destinationPlan, plan)
+            XCTAssertEqual(vm.destinationCaption, caption)
+
+            vm.appendToExistingPDF = false
+            XCTAssertTrue(vm.canScan)
+            XCTAssertEqual(vm.destinationCaption, "Scan.pdf exists. Will save as Scan 2.pdf")
+        }
+    }
+
+    func testNonPDFBytesAtTheNameBlockScan() {
+        let writer = InMemoryDestinationWriter(files: [scanPDF: Data("not a PDF".utf8)], folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [], writer: writer)
+        vm.appendToExistingPDF = true
+
+        XCTAssertFalse(vm.canScan)
+        XCTAssertEqual(vm.destinationCaption, "Scan.pdf can't be opened as a PDF")
+    }
+
+    func testStartScanCreatesNoScanJobWithABlockedAppendTarget() async throws {
+        let writer = InMemoryDestinationWriter(files: [scanPDF: Data("not a PDF".utf8)], folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [Fixtures.minimalJPEG], writer: writer)
+        vm.appendToExistingPDF = true
+
+        vm.startScan()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertNil(vm.scanTask)
+        XCTAssertNil(vm.jobState)
+        XCTAssertTrue(writer.writes.isEmpty)
+    }
+
+    func testAppendCheckboxIsOnlyOfferedForPDFAndItsValueIsIgnoredOtherwise() async throws {
+        let page = try makeTestJPEG(width: 40, height: 30)
+        let writer = InMemoryDestinationWriter(folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [page], writer: writer)
+        XCTAssertTrue(vm.canAppendToExistingPDF)
+        vm.appendToExistingPDF = true
+
+        for type in [FileType.png, .jpeg, .tiff] {
+            vm.platenFileType = type
+            XCTAssertFalse(vm.canAppendToExistingPDF, "\(type)")
+            XCTAssertFalse(vm.destination.append, "\(type)")
+            XCTAssertEqual(vm.destinationCaption, "Will create Scan.\(type.fileExtension)")
+        }
+
+        vm.platenFileType = .png
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+        XCTAssertEqual(writer.writes.map(\.append), [false])
+        XCTAssertEqual(vm.destinationCaption, "Scan.png exists. Will save as Scan 2.png")
+
+        vm.platenFileType = .pdf
+        XCTAssertTrue(vm.canAppendToExistingPDF)
+        XCTAssertEqual(vm.destinationCaption, "Scan.pdf doesn't exist yet. Will create it",
+                       "Still ticked for this session when PDF comes back")
+    }
+
+    func testAppendStartsUntickedOnEveryLaunch() {
+        let defaults = makeIsolatedDefaults()
+        func launch() -> ScanViewModel {
+            ScanViewModel(
+                scannerFactory: { _ in MockScanner(states: [], result: .success([])) },
+                discoveryFactory: { MockDiscovery() },
+                destinationWriter: InMemoryDestinationWriter(folders: [defaultTestFolder]),
+                defaults: defaults
+            )
+        }
+
+        let first = launch()
+        XCTAssertFalse(first.appendToExistingPDF)
+        first.platenFileType = .pdf
+        first.appendToExistingPDF = true
+
+        let relaunched = launch()
+        XCTAssertEqual(relaunched.platenFileType, .pdf, "The file type is remembered")
+        XCTAssertFalse(relaunched.appendToExistingPDF, "Append is not")
+    }
+
+    func testAppendTargetThatBecameUnusableFailsTheSaveAndNeverCreatesAnotherFile() async throws {
+        actor GatedScanner: WSDScannerProtocol {
+            private let pages: [Data]
+            private var gate: CheckedContinuation<Void, Never>?
+            init(pages: [Data]) { self.pages = pages }
+            func scan(ticket: ScanTicket, onState: @Sendable (ScanJob) async -> Void) async throws -> [Data] {
+                await onState(.retrievingPage(1))
+                await withCheckedContinuation { gate = $0 }
+                return pages
+            }
+            func overview() async throws -> Data { Data() }
+            var isWaiting: Bool { gate != nil }
+            func finish() { gate?.resume(); gate = nil }
+        }
+
+        let page = try makeTestJPEG(width: 40, height: 30)
+        let scanner = GatedScanner(pages: [page])
+        let writer = InMemoryDestinationWriter(files: [scanPDF: try makePDF(pageCount: 2)], folders: [defaultTestFolder])
+        let vm = ScanViewModel(
+            scannerFactory: { _ in scanner },
+            discoveryFactory: { MockDiscovery() },
+            destinationWriter: writer,
+            defaults: makeIsolatedDefaults()
+        )
+        vm.selectedTarget = nil
+        vm.manualHost = "192.168.1.66"
+        vm.selectedRegion = defaultTestRegion
+        vm.platenFileType = .pdf
+        vm.destinationFolder = defaultTestFolder
+        vm.appendToExistingPDF = true
+        XCTAssertEqual(vm.destinationCaption, "Will add to Scan.pdf (2 pages)")
+
+        vm.startScan()
+        while await !scanner.isWaiting { try await Task.sleep(nanoseconds: 5_000_000) }
+        // Another app replaces Scan.pdf with something else while the Scanner works.
+        let replacement = Data("no longer a PDF".utf8)
+        writer.setFile(replacement, at: scanPDF)
+        await scanner.finish()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+
+        XCTAssertEqual(vm.saveStatus, .failed("Scan.pdf can't be opened as a PDF"))
+        XCTAssertEqual(vm.statusMessage, "Not saved. Scan.pdf can't be opened as a PDF")
+        XCTAssertTrue(writer.writes.isEmpty)
+        XCTAssertEqual(writer.files, [scanPDF.path: replacement], "Nothing was created under another name")
+        XCTAssertEqual(vm.previewPages, [page], "The pages stay in memory for Retry Save")
+        XCTAssertFalse(vm.canScan)
+
+        // The file is put right; Retry Save adds the page to it.
+        writer.setFile(try makePDF(pageCount: 2), at: scanPDF)
+        vm.retrySave()
+
+        XCTAssertEqual(writer.writes, [.init(pages: [page], dpi: 300, url: scanPDF, fileType: .pdf, append: true)])
+        XCTAssertEqual(vm.statusMessage, "Added 1 page to Scan.pdf (3 pages)")
+    }
+
+    func testWriterRefusingAnAppendFailsTheSaveWithItsReason() async throws {
+        let page = try makeTestJPEG(width: 40, height: 30)
+        let writer = InMemoryDestinationWriter(files: [scanPDF: try makePDF(pageCount: 2)], folders: [defaultTestFolder])
+        let vm = makeAppendVM(pages: [page], writer: writer)
+        vm.appendToExistingPDF = true
+        writer.failWrites(with: DestinationWriteError.appendTargetProtected(scanPDF))
+        let original = writer.files
+
+        vm.startScan()
+        try await waitForCondition(timeout: 2) { vm.saveStatus != nil }
+
+        XCTAssertEqual(vm.saveStatus, .failed("Scan.pdf is protected and can't be added to"))
+        XCTAssertEqual(writer.files, original)
+        XCTAssertEqual(vm.previewPages, [page])
     }
 
     // MARK: - selectedTarget tests
