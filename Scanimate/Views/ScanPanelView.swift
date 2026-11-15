@@ -11,12 +11,15 @@ struct ScanPanelView: View {
     @AppStorage("colorMode") private var colorMode: String = ColorMode.grayscale.rawValue
     @AppStorage("paperSize") private var paperSize: String = PaperSize.letter.rawValue
     @AppStorage("inputSource") private var inputSource: String = InputSource.flatbed.rawValue
+    @AppStorage("leftPanelWidth") private var leftPanelWidth: Double = 260
+
+    private static let leftPanelWidthRange: ClosedRange<Double> = 260...480
 
     var body: some View {
         HStack(spacing: 0) {
             leftPanel
-                .frame(width: 260)
-            Divider()
+                .frame(width: leftPanelWidth.clamped(to: Self.leftPanelWidthRange))
+            PanelDivider(width: $leftPanelWidth, range: Self.leftPanelWidthRange)
             rightPanel
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -220,40 +223,22 @@ struct ScanPanelView: View {
     // MARK: - Button bar
 
     private var buttonBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let caption = scanBlockedCaption {
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            HStack(spacing: 8) {
-                // Both stay available after a scan, so the next page is one click.
-                Button("Overview") { startOverview() }
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            // Both stay available after a scan, so the next page is one click.
+            Button("Overview") { startOverview() }
+                .buttonStyle(.bordered)
+                .disabled(overviewDisabled)
+            Button("Scan") { startScan() }
+                .buttonStyle(.borderedProminent)
+                .disabled(scanDisabled)
+            if viewModel.isScanning {
+                Button("Cancel") { viewModel.cancelScan() }
                     .buttonStyle(.bordered)
-                    .disabled(overviewDisabled)
-                Button("Scan") { startScan() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(scanDisabled)
-                if viewModel.isScanning {
-                    Button("Cancel") { viewModel.cancelScan() }
-                        .buttonStyle(.bordered)
-                }
             }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-    }
-
-    /// Why Scan is disabled for a Platen scan with no ScanRegion, or nil when
-    /// that is not what is holding it back.
-    private var scanBlockedCaption: String? {
-        guard viewModel.needsScanRegion,
-              !viewModel.isScanning, !viewModel.isOverviewing
-        else { return nil }
-        return viewModel.overviewImage == nil
-            ? "To scan from the Platen, press Overview, then drag a box around the area to scan."
-            : "To scan from the Platen, drag a box on the Overview around the area to scan."
     }
 
     private var overviewDisabled: Bool {
@@ -409,5 +394,64 @@ struct ScanPanelView: View {
         viewModel.colorMode = ColorMode(rawValue: colorMode) ?? .grayscale
         viewModel.paperSize = PaperSize(rawValue: paperSize) ?? .letter
         viewModel.inputSource = InputSource(rawValue: inputSource) ?? .flatbed
+    }
+}
+
+/// A vertical divider that resizes the panel to its left when dragged.
+/// The visible line stays hairline-thin; the hit area is wider so it is easy to grab.
+private struct PanelDivider: View {
+    @Binding var width: Double
+    let range: ClosedRange<Double>
+
+    @State private var dragStartWidth: Double?
+    @State private var isCursorPushed = false
+    @State private var isHovering = false
+
+    var body: some View {
+        Divider()
+            .overlay(
+                Color.clear
+                    .frame(width: 8)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        isHovering = hovering
+                        if hovering {
+                            pushCursor()
+                        } else if dragStartWidth == nil {
+                            popCursor()
+                        }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                            .onChanged { value in
+                                let start = dragStartWidth ?? width.clamped(to: range)
+                                dragStartWidth = start
+                                width = (start + value.translation.width).clamped(to: range)
+                            }
+                            .onEnded { _ in
+                                dragStartWidth = nil
+                                if !isHovering { popCursor() }
+                            }
+                    )
+            )
+            .onDisappear { popCursor() }
+    }
+
+    private func pushCursor() {
+        guard !isCursorPushed else { return }
+        NSCursor.resizeLeftRight.push()
+        isCursorPushed = true
+    }
+
+    private func popCursor() {
+        guard isCursorPushed else { return }
+        NSCursor.pop()
+        isCursorPushed = false
+    }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }
