@@ -20,14 +20,32 @@ Scanimate is a macOS app for scanning from a **Samsung SL-M2070 series** network
 
 - macOS 13 or later
 - A scanner on the same local network
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
-## Build
+## Install
+
+1. Download `Scanimate-<version>.zip` from the [latest release](https://github.com/jerinjoy/scanimate/releases/latest) and unzip it.
+2. Move `Scanimate.app` to your Applications folder.
+3. Open it. macOS will refuse, because the app is not notarized by Apple.
+4. Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
+
+Step 4 is only needed the first time. If you prefer the terminal, this does the same thing:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Scanimate.app
+```
+
+Scanimate asks for Local Network access on first launch. It needs that to reach the scanner.
+
+## Build from source
+
+Needs Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash
 xcodegen generate
 open Scanimate.xcodeproj
 ```
+
+To build the release zip, run `scripts/release.sh`. It writes `build/Scanimate-<version>.zip`.
 
 ## More
 
