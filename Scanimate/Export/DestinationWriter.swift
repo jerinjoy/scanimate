@@ -15,14 +15,16 @@ protocol DestinationWriter: Sendable {
 
     /// Converts a ScanResult's raw JPEG `pages` to `fileType` and writes them to `url`.
     ///
-    /// PDF holds every page. PNG and TIFF hold a single image, so only the
-    /// first page is written. `dpi` is recorded in the image metadata.
+    /// PDF holds every page. PNG, JPEG and TIFF hold a single image, so only
+    /// the first page is written. JPEG is the Scanner's raw page data, byte for
+    /// byte, with no re-encode. `dpi` is recorded in PNG and TIFF metadata.
     /// With `append`, the pages are added to the end of an existing PDF at `url`.
+    /// Without it, a file already at `url` is never overwritten: the write throws.
     func write(pages: [Data], dpi: Int, to url: URL, as fileType: FileType, append: Bool) throws
 }
 
 /// The production `DestinationWriter`: PNG/TIFF encode via `CGImageDestination`,
-/// PDF assembly via PDFKit, real disk I/O.
+/// PDF assembly via PDFKit, JPEG passed through untouched, real disk I/O.
 struct FileDestinationWriter: DestinationWriter {
 
     func fileExists(at url: URL) -> Bool {
@@ -36,7 +38,19 @@ struct FileDestinationWriter: DestinationWriter {
     func write(pages: [Data], dpi: Int, to url: URL, as fileType: FileType, append: Bool) throws {
         // `append` is not honoured yet; every write creates the file.
         let data = try Self.encode(pages: pages, dpi: dpi, as: fileType)
-        try data.write(to: url, options: .atomic)
+        // An existing file is never replaced, even one that appeared since planning.
+        guard !fileExists(at: url) else {
+            throw CocoaError(.fileWriteFileExists, userInfo: [NSFilePathErrorKey: url.path])
+        }
+        do {
+            try data.write(to: url, options: .withoutOverwriting)
+        } catch let error as CocoaError where error.code == .fileWriteFileExists {
+            throw error
+        } catch {
+            // Not atomic, so do not leave a partial file of ours behind.
+            try? FileManager.default.removeItem(at: url)
+            throw error
+        }
     }
 
     // MARK: - Encoding
@@ -52,7 +66,10 @@ struct FileDestinationWriter: DestinationWriter {
         case .tiff:
             return try encodeImage(pages: pages, dpi: dpi, utType: "public.tiff")
         case .jpeg:
-            throw ScanError.protocolError("JPEG output is not supported yet")
+            guard let jpeg = pages.first else {
+                throw ScanError.protocolError("No page to write")
+            }
+            return jpeg
         }
     }
 
@@ -83,7 +100,11 @@ struct FileDestinationWriter: DestinationWriter {
         let pdfDoc = PDFDocument()
 
         for (index, jpeg) in pages.enumerated() {
-            guard let nsImage = NSImage(data: jpeg),
+            // Decode first: NSImage accepts a truncated JPEG lazily, and PDFKit
+            // then crashes on it instead of failing.
+            guard let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
+                  CGImageSourceCreateImageAtIndex(source, 0, nil) != nil,
+                  let nsImage = NSImage(data: jpeg),
                   let page = PDFPage(image: nsImage) else {
                 throw ScanError.protocolError("Could not create PDF page \(index + 1)")
             }

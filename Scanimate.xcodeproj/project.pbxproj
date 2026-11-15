@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0450C4426E0742A4CA5CADCD /* DestinationPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A70C30B63BCB15A22227F0EC /* DestinationPlanTests.swift */; };
 		12DE2F7A493A5397D6074B76 /* ScanViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49D9A720F912BCDD2889F8B7 /* ScanViewModelTests.swift */; };
 		27F5C18AE6D08B7580ADBFF0 /* WSScannerDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A59B37C17E5ACB58E180BB /* WSScannerDiscovery.swift */; };
 		2A28365BC520D626E63BC00B /* ScanimateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37EC968AC4AA71D3C15B819 /* ScanimateApp.swift */; };
@@ -19,6 +20,7 @@
 		6CA91DC3B8D8FF39BC59237F /* URLProtocolStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A96A1535FD40F3E34F57C39 /* URLProtocolStub.swift */; };
 		6FED2A999D2CF9F518F4EF5F /* ScanPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAA20241FE27843780B15C2 /* ScanPanelView.swift */; };
 		77CF5E5B1771F4BED173A74C /* ScannerTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A109738B0B6A500B55DF48 /* ScannerTarget.swift */; };
+		7A3C1B1B515C9AFE6362ADD4 /* AutomaticSaveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D79D523004A1DDECAC973C65 /* AutomaticSaveTests.swift */; };
 		7C82CC88D920FA9146566D64 /* ManageDevicesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731385C6B0802C9027D7DDAE /* ManageDevicesSheet.swift */; };
 		81D81D1CA2313E2BE39AAB64 /* MDNSHostnameResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED51F4248B8BD9F931F79FB /* MDNSHostnameResolverTests.swift */; };
 		824ED1814929415853BEA376 /* ScanRegionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A8ED27DDDE7608CC9FAA1E /* ScanRegionTests.swift */; };
@@ -60,9 +62,11 @@
 		A00143B209D5585F36B1D8AB /* WSDScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSDScanner.swift; sourceTree = "<group>"; };
 		A3C42B85765379FC8A154BC4 /* DestinationWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationWriter.swift; sourceTree = "<group>"; };
 		A44D61F111A13B7479CBDD62 /* ScanmateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScanmateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A70C30B63BCB15A22227F0EC /* DestinationPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationPlanTests.swift; sourceTree = "<group>"; };
 		A9904F591315378B5953C7C7 /* MDNSHostnameResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MDNSHostnameResolver.swift; sourceTree = "<group>"; };
 		B5D440037843B813A495A54B /* ScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModel.swift; sourceTree = "<group>"; };
 		CE9A4F228C0A65AA04844617 /* ScanJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanJob.swift; sourceTree = "<group>"; };
+		D79D523004A1DDECAC973C65 /* AutomaticSaveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomaticSaveTests.swift; sourceTree = "<group>"; };
 		D9BBC606FAC339C5F76AEE7E /* WSScannerDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WSScannerDiscoveryTests.swift; sourceTree = "<group>"; };
 		E2983C1BE1F9CDECA19A8BC0 /* DestinationWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationWriterTests.swift; sourceTree = "<group>"; };
 		E2F5979391E9ECD589FBC55C /* Scanimate.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Scanimate.entitlements; sourceTree = "<group>"; };
@@ -160,6 +164,8 @@
 		C93088CBBDBE4A7BA7E8803B /* ScanmateTests */ = {
 			isa = PBXGroup;
 			children = (
+				D79D523004A1DDECAC973C65 /* AutomaticSaveTests.swift */,
+				A70C30B63BCB15A22227F0EC /* DestinationPlanTests.swift */,
 				E2983C1BE1F9CDECA19A8BC0 /* DestinationWriterTests.swift */,
 				4ED51F4248B8BD9F931F79FB /* MDNSHostnameResolverTests.swift */,
 				75A8ED27DDDE7608CC9FAA1E /* ScanRegionTests.swift */,
@@ -293,6 +299,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7A3C1B1B515C9AFE6362ADD4 /* AutomaticSaveTests.swift in Sources */,
+				0450C4426E0742A4CA5CADCD /* DestinationPlanTests.swift in Sources */,
 				2CFF04D19D0FB2DD86155C1C /* DestinationWriterTests.swift in Sources */,
 				81D81D1CA2313E2BE39AAB64 /* MDNSHostnameResolverTests.swift in Sources */,
 				824ED1814929415853BEA376 /* ScanRegionTests.swift in Sources */,

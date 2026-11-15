@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 @MainActor
 final class ScanViewModel: ObservableObject {
@@ -29,7 +28,68 @@ final class ScanViewModel: ObservableObject {
     @Published var resolution: Resolution = .dpi300
     @Published var colorMode: ColorMode = .grayscale
     @Published var paperSize: PaperSize = .letter
-    @Published var inputSource: InputSource = .flatbed
+    @Published var inputSource: InputSource = .flatbed {
+        didSet { refreshDestinationPlan() }
+    }
+
+    // MARK: - Destination
+
+    /// The Destination's name as typed, without an extension. Persisted.
+    @Published var destinationName: String = Destination.defaultName {
+        didSet {
+            defaults.set(destinationName, forKey: Self.destinationNameKey)
+            refreshDestinationPlan()
+        }
+    }
+    /// The file type chosen for Platen scans. Persisted. An ADF ScanJob ignores
+    /// it (see `fileType`), and it comes back when the source returns to the Platen.
+    @Published var platenFileType: FileType = .png {
+        didSet {
+            defaults.set(platenFileType.rawValue, forKey: Self.destinationFileTypeKey)
+            refreshDestinationPlan()
+        }
+    }
+    /// The Destination's folder. Held for this launch only — never persisted —
+    /// so it is nil, and Scan is disabled, until the user chooses one.
+    @Published var destinationFolder: URL? {
+        didSet { refreshDestinationPlan() }
+    }
+    /// What the next write to the Destination will do. A preview: it is
+    /// recomputed at the moment of the write.
+    @Published private(set) var destinationPlan: DestinationPlan = .blocked(.noFolder)
+    /// The outcome of writing the current ScanResult, or nil when there is none.
+    @Published private(set) var saveStatus: SaveStatus?
+
+    enum SaveStatus: Equatable {
+        case saved(fileName: String, folderName: String)
+        /// The write failed; the ScanResult is still in memory for a retry.
+        case failed(String)
+    }
+
+    /// An ADF ScanJob produces several pages and only PDF can hold them.
+    var isFileTypeForced: Bool { inputSource == .adf }
+
+    /// The file type the Destination writes: PDF for the ADF, the user's
+    /// choice for the Platen.
+    var fileType: FileType {
+        isFileTypeForced ? .pdf : platenFileType
+    }
+
+    var destination: Destination {
+        Destination(name: destinationName, fileType: fileType, folder: destinationFolder)
+    }
+
+    /// One sentence saying what the next scan will write, or why Scan is disabled.
+    var destinationCaption: String { destinationPlan.caption }
+
+    /// Recomputes `destinationPlan` from the Destination and the disk. Called
+    /// when a Destination field changes, after each save, and when the app
+    /// becomes active (files may have changed behind its back).
+    func refreshDestinationPlan() {
+        let writer = destinationWriter
+        let plan = destination.plan { writer.fileExists(at: $0) }
+        if plan != destinationPlan { destinationPlan = plan }
+    }
 
     // MARK: - Scan state
 
@@ -53,11 +113,15 @@ final class ScanViewModel: ObservableObject {
     private var scannerFactory: @Sendable (String) -> any WSDScannerProtocol
     private var discoveryFactory: @Sendable () -> any ScannerDiscoveryProtocol
     private let destinationWriter: any DestinationWriter
+    /// Where the Destination's name and file type are persisted.
+    private let defaults: UserDefaults
 
     // MARK: - Persistence keys
 
     private static let savedTargetsKey = "savedTargets"
     private static let lastUsedHostKey = "lastUsedHost"
+    private static let destinationNameKey = "destinationName"
+    private static let destinationFileTypeKey = "destinationFileType"
 
     // MARK: - Derived host
 
@@ -85,9 +149,11 @@ final class ScanViewModel: ObservableObject {
         inputSource == .flatbed && selectedRegion == nil
     }
 
-    /// The whole gate for starting a ScanJob.
+    /// The whole gate for starting a ScanJob. A ScanJob's ScanResult is
+    /// written the moment it completes, so the Destination must be valid first.
     var canScan: Bool {
         !isScanning && !isOverviewing && activeHost != nil && !needsScanRegion
+            && !destinationPlan.isBlocked
     }
 
     var isScanComplete: Bool {
@@ -105,7 +171,14 @@ final class ScanViewModel: ObservableObject {
         case .retrievingPage(let n):
             return "Scanning page \(n)…"
         case .complete:
-            return "Scan complete."
+            switch saveStatus {
+            case .saved(let fileName, let folderName):
+                return "Saved \(fileName) to \(folderName)"
+            case .failed(let reason):
+                return "Not saved. \(reason)"
+            case nil:
+                return "Scan complete."
+            }
         case .failed:
             return "Scan failed."
         case .cancelled:
@@ -118,12 +191,23 @@ final class ScanViewModel: ObservableObject {
     init(
         scannerFactory: @escaping @Sendable (String) -> any WSDScannerProtocol = { WSDScanner(host: $0) },
         discoveryFactory: @escaping @Sendable () -> any ScannerDiscoveryProtocol = { WSScannerDiscovery() },
-        destinationWriter: any DestinationWriter = FileDestinationWriter()
+        destinationWriter: any DestinationWriter = FileDestinationWriter(),
+        defaults: UserDefaults = .standard
     ) {
         self.scannerFactory = scannerFactory
         self.discoveryFactory = discoveryFactory
         self.destinationWriter = destinationWriter
+        self.defaults = defaults
+        // Property observers do not run during init, so nothing is written back.
+        if let name = defaults.string(forKey: Self.destinationNameKey) {
+            destinationName = name
+        }
+        if let raw = defaults.string(forKey: Self.destinationFileTypeKey),
+           let type = FileType(rawValue: raw) {
+            platenFileType = type
+        }
         loadPersistedState()
+        refreshDestinationPlan()
     }
 
     // MARK: - Actions
@@ -143,6 +227,11 @@ final class ScanViewModel: ObservableObject {
             ticket.scanRegion = selectedRegion
         }
 
+        // Starting the next ScanJob lets go of the previous ScanResult.
+        saveStatus = nil
+        previewPages = []
+        jobState = .checkingScanner
+
         scanTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
@@ -151,6 +240,7 @@ final class ScanViewModel: ObservableObject {
                 }
                 self.jobState = .complete(pages)
                 self.previewPages = pages
+                self.saveScanResult()
             } catch is CancellationError {
                 self.jobState = .cancelled
             } catch let error as ScanError {
@@ -170,6 +260,8 @@ final class ScanViewModel: ObservableObject {
 
         // The ScanRegion is deliberately left alone: it persists across Overview
         // runs for the session and only changes when the user drags a new one.
+        // The previous ScanResult's preview makes way for the Overview.
+        resetForNextScan()
         isOverviewing = true
         overviewImage = nil
 
@@ -200,6 +292,7 @@ final class ScanViewModel: ObservableObject {
         scanTask = nil
         jobState = nil
         previewPages = []
+        saveStatus = nil
         alertError = nil
     }
 
@@ -351,68 +444,41 @@ final class ScanViewModel: ObservableObject {
 
     // MARK: - Save
 
-    /// The file type offered first in the save dialog: PDF for an ADF
-    /// ScanJob, PNG for a Platen one.
-    var defaultFileType: FileType {
-        inputSource == .adf ? .pdf : .png
+    /// Writes the pages again after a failed write. The plan is recomputed, so
+    /// a retry picks up a newly chosen folder or a name that has since been taken.
+    func retrySave() {
+        guard case .failed = saveStatus else { return }
+        saveScanResult()
     }
 
-    /// The file types the save dialog allows. Only an ADF ScanJob offers PDF.
-    var allowedFileTypes: [FileType] {
-        inputSource == .adf ? [.pdf, .png, .tiff] : [.png, .tiff]
-    }
-
-    /// The filename the save dialog starts with.
-    var suggestedFilename: String {
-        "Scan.\(defaultFileType.fileExtension)"
-    }
-
-    func save() {
-        guard case .complete(let pages) = jobState, !pages.isEmpty else { return }
-
-        let savePanel = NSSavePanel()
-        savePanel.canCreateDirectories = true
-        savePanel.allowedContentTypes = allowedFileTypes.map(Self.contentType)
-        savePanel.nameFieldStringValue = suggestedFilename
-
-        guard savePanel.runModal() == .OK, let url = savePanel.url else { return }
-        writeScanResult(to: url)
-    }
-
-    /// Writes the completed ScanJob's ScanResult to `url` through the
-    /// DestinationWriter, taking the file type from the URL's extension.
-    func writeScanResult(to url: URL) {
+    /// Writes the completed ScanJob's ScanResult to the Destination through the
+    /// DestinationWriter. The plan is recomputed here; the caption was only a preview.
+    /// On failure the pages stay in memory and `saveStatus` carries the reason.
+    private func saveScanResult() {
         guard case .complete(let pages) = jobState, !pages.isEmpty else { return }
         let dpiValue = Int(resolution.rawValue) ?? 300
 
-        do {
-            try destinationWriter.write(
-                pages: pages,
-                dpi: dpiValue,
-                to: url,
-                as: fileType(forSavingTo: url),
-                append: false
-            )
-            resetForNextScan()
-        } catch {
-            alertError = .protocolError("Save failed: \(error.localizedDescription)")
+        refreshDestinationPlan()
+        guard let url = destinationPlan.url, let folder = destinationFolder else {
+            saveStatus = .failed(destinationPlan.caption)
+            return
         }
-    }
 
-    /// PDF only for an ADF ScanJob saved with a `.pdf` extension; otherwise
-    /// TIFF for `.tiff`/`.tif`, and PNG for anything else.
-    private func fileType(forSavingTo url: URL) -> FileType {
-        let ext = url.pathExtension.lowercased()
-        if inputSource == .adf && ext == "pdf" { return .pdf }
-        return ext == "tiff" || ext == "tif" ? .tiff : .png
-    }
-
-    private static func contentType(for fileType: FileType) -> UTType {
-        switch fileType {
-        case .pdf: return .pdf
-        case .png: return .png
-        case .jpeg: return .jpeg
-        case .tiff: return .tiff
+        do {
+            try destinationWriter.write(pages: pages, dpi: dpiValue, to: url, as: fileType, append: false)
+            saveStatus = .saved(fileName: url.lastPathComponent, folderName: folder.lastPathComponent)
+            refreshDestinationPlan()
+        } catch {
+            if destinationWriter.fileExists(at: folder) {
+                saveStatus = .failed(error.localizedDescription)
+                refreshDestinationPlan()
+            } else {
+                // The folder vanished: forget it so the caption asks for a new one.
+                saveStatus = .failed(
+                    "The folder \u{201C}\(folder.lastPathComponent)\u{201D} is no longer there. Choose a folder, then retry."
+                )
+                destinationFolder = nil
+            }
         }
     }
 }

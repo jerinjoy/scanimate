@@ -36,6 +36,10 @@ struct ScanPanelView: View {
             syncSettings()
             viewModel.startDiscovery()
         }
+        // Files may have appeared or gone while the app was in the background.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            viewModel.refreshDestinationPlan()
+        }
         .sheet(isPresented: $isManagingDevices) {
             ManageDevicesSheet(viewModel: viewModel)
         }
@@ -108,9 +112,62 @@ struct ScanPanelView: View {
                     viewModel.inputSource = InputSource(rawValue: $0) ?? .flatbed
                 }
             }
+
+            destinationSection
         }
         .formStyle(.grouped)
         .disabled(viewModel.isScanning || viewModel.isOverviewing)
+    }
+
+    // MARK: - Destination
+
+    private var destinationSection: some View {
+        Section("Destination") {
+            TextField("Name", text: $viewModel.destinationName)
+
+            // An ADF ScanJob is always written as PDF, so there is nothing to pick.
+            Picker("Format", selection: fileTypeBinding) {
+                ForEach(FileType.allCases, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            }
+            .disabled(viewModel.isFileTypeForced)
+
+            LabeledContent("Folder") {
+                HStack(spacing: 6) {
+                    Text(viewModel.destinationFolder?.lastPathComponent ?? "None")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(viewModel.destinationFolder == nil ? .secondary : .primary)
+                        .help(viewModel.destinationFolder?.path ?? "No folder chosen")
+                    Button("Choose…") { chooseDestinationFolder() }
+                }
+            }
+
+            Text(viewModel.destinationCaption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var fileTypeBinding: Binding<FileType> {
+        Binding(
+            get: { viewModel.fileType },
+            set: { if !viewModel.isFileTypeForced { viewModel.platenFileType = $0 } }
+        )
+    }
+
+    private func chooseDestinationFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.directoryURL = viewModel.destinationFolder
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        viewModel.destinationFolder = url
     }
 
     // MARK: - Scanner picker row
@@ -165,22 +222,16 @@ struct ScanPanelView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 8) {
-                if viewModel.isScanComplete {
-                    Button("Save…") { viewModel.save() }
-                        .buttonStyle(.borderedProminent)
-                    Button("Scan Again") { viewModel.resetForNextScan() }
+                // Both stay available after a scan, so the next page is one click.
+                Button("Overview") { startOverview() }
+                    .buttonStyle(.bordered)
+                    .disabled(overviewDisabled)
+                Button("Scan") { startScan() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(scanDisabled)
+                if viewModel.isScanning {
+                    Button("Cancel") { viewModel.cancelScan() }
                         .buttonStyle(.bordered)
-                } else {
-                    Button("Overview") { startOverview() }
-                        .buttonStyle(.bordered)
-                        .disabled(overviewDisabled)
-                    Button("Scan") { startScan() }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(scanDisabled)
-                    if viewModel.isScanning {
-                        Button("Cancel") { viewModel.cancelScan() }
-                            .buttonStyle(.bordered)
-                    }
                 }
             }
         }
@@ -192,7 +243,7 @@ struct ScanPanelView: View {
     /// that is not what is holding it back.
     private var scanBlockedCaption: String? {
         guard viewModel.needsScanRegion,
-              !viewModel.isScanning, !viewModel.isOverviewing, !viewModel.isScanComplete
+              !viewModel.isScanning, !viewModel.isOverviewing
         else { return nil }
         return viewModel.overviewImage == nil
             ? "To scan from the Platen, press Overview, then drag a box around the area to scan."
@@ -277,30 +328,61 @@ struct ScanPanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
     private var scanResultPanel: some View {
-        if let first = viewModel.previewPages.first,
-           let nsImage = NSImage(data: first) {
-            ZStack(alignment: .topTrailing) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .shadow(radius: 4)
-                    .padding(16)
+        VStack(spacing: 0) {
+            if let first = viewModel.previewPages.first,
+               let nsImage = NSImage(data: first) {
+                ZStack(alignment: .topTrailing) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .shadow(radius: 4)
+                        .padding(16)
 
-                if viewModel.previewPages.count > 1 {
-                    Text("\(viewModel.previewPages.count) pages")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.tint)
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
-                        .padding(24)
+                    if viewModel.previewPages.count > 1 {
+                        Text("\(viewModel.previewPages.count) pages")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.tint)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
+                            .padding(24)
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            saveStatusRow
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// What became of the ScanResult: where it was written, or why it was not.
+    @ViewBuilder
+    private var saveStatusRow: some View {
+        switch viewModel.saveStatus {
+        case .saved:
+            Label(viewModel.statusMessage, systemImage: "checkmark.circle.fill")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        case .failed:
+            HStack(spacing: 10) {
+                Label(viewModel.statusMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Retry Save") { viewModel.retrySave() }
+                    .disabled(viewModel.isScanning || viewModel.isOverviewing)
+            }
+        case nil:
+            EmptyView()
         }
     }
 

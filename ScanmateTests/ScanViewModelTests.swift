@@ -63,15 +63,20 @@ private func makeVM(
 ) -> ScanViewModel {
     let vm = ScanViewModel(
         scannerFactory: { _ in mock },
-        discoveryFactory: { MockDiscovery(targets: discoveryTargets) }
+        discoveryFactory: { MockDiscovery(targets: discoveryTargets) },
+        destinationWriter: InMemoryDestinationWriter(folders: [defaultTestFolder]),
+        defaults: makeIsolatedDefaults()
     )
-    // A Platen ScanJob needs a ScanRegion; give the shared VM one so tests
-    // that just start a scan are not blocked by the gate.
+    // A Platen ScanJob needs a ScanRegion, and every ScanJob a valid
+    // Destination; give the shared VM both so tests that just start a scan are
+    // not blocked by the gate.
     vm.selectedRegion = defaultTestRegion
+    vm.destinationFolder = defaultTestFolder
     return vm
 }
 
 private let defaultTestRegion = ScanRegion(xOffset: 0, yOffset: 0, width: 8500, height: 11000)
+private let defaultTestFolder = URL(fileURLWithPath: "/nonexistent-scanimate-tests/Scans", isDirectory: true)
 
 // MARK: - Tests
 
@@ -103,7 +108,7 @@ final class ScanViewModelTests: XCTestCase {
     func testProgressMessageDuringScanning() async throws {
         let mock = MockScanner(
             states: [.checkingScanner, .creatingJob(attempt: 1), .retrievingPage(1)],
-            result: .success([Fixtures.minimalJPEG])
+            result: .success([try makeTestJPEG(width: 8, height: 8)])
         )
         let vm = makeVM(mock: mock)
         vm.manualHost = "192.168.1.66"
@@ -111,7 +116,7 @@ final class ScanViewModelTests: XCTestCase {
 
         try await waitForCondition(timeout: 2) { vm.isScanComplete }
 
-        XCTAssertEqual(vm.statusMessage, "Scan complete.")
+        XCTAssertEqual(vm.statusMessage, "Saved Scan.png to Scans")
     }
 
     func testCancelButtonHidesAfterCompletion() async throws {
@@ -194,9 +199,14 @@ final class ScanViewModelTests: XCTestCase {
             func overview() async throws -> Data { Data() }
         }
 
-        let vm = ScanViewModel(scannerFactory: { _ in BlockingScanner() })
+        let vm = ScanViewModel(
+            scannerFactory: { _ in BlockingScanner() },
+            destinationWriter: InMemoryDestinationWriter(folders: [defaultTestFolder]),
+            defaults: makeIsolatedDefaults()
+        )
         vm.manualHost = "192.168.1.66"
         vm.selectedRegion = defaultTestRegion
+        vm.destinationFolder = defaultTestFolder
 
         vm.startScan()
         try await waitForCondition(timeout: 1) { vm.isScanning }
@@ -418,11 +428,14 @@ final class ScanViewModelTests: XCTestCase {
         let mock = MockScanner(states: [], result: .success([Fixtures.minimalJPEG]))
         let vm = ScanViewModel(
             scannerFactory: { host in Task { await capturedHost.set(host) }; return mock },
-            discoveryFactory: { MockDiscovery() }
+            discoveryFactory: { MockDiscovery() },
+            destinationWriter: InMemoryDestinationWriter(folders: [defaultTestFolder]),
+            defaults: makeIsolatedDefaults()
         )
         let target = ScannerTarget(host: "10.0.0.42", displayName: nil, source: .discovered)
         vm.selectedTarget = target
         vm.selectedRegion = defaultTestRegion
+        vm.destinationFolder = defaultTestFolder
 
         vm.startScan()
         try await waitForCondition(timeout: 2) { vm.isScanComplete }
